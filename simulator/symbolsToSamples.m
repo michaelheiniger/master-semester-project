@@ -10,11 +10,11 @@
 
 function z = symbolsToSamples(symbols, pulse, USF)
 
-symbols = symbols(:); % make sure it is a column vector
+%symbols = symbols(:); % make sure it is a column vector
 
 % Inserting USF-1 zeros between every two consecutive samples of y
 symbols_up = upsample(symbols, USF); 
 
 % Convolve upsampled symbol vector with the shaping pulse h
  z =  conv(symbols_up, pulse);
- z = transpose(z);
+ %z = transpose(z);
