@@ -14,7 +14,7 @@ load('CAcodes.mat');
 ca = satCAcodes(1,:); % Data
 N = 10; % Number of repetition of CA code (N > 1)
 symbols = repmat(ca,1,N);
-numFullCAToKeep = 2; % (> 1) Number of CA to keep (first complete one included)
+numFullCAToKeep = 1; % (> 1) Number of CA to keep (first complete one included)
 
 % Pulse shaping
 Fd = 1;         % symbol rate [symbols/s]
@@ -44,11 +44,11 @@ caUpsampled = upsample(ca,USF);
 
 % AWGN
 SNR = 5; % Signal-To-Noise ratio in dB
-awgnEnabled = 1;
+awgnEnabled = 0;
 
 % Doppler
-dopplerCorrection = 1;
-doppler = 0.000132;%0.0001 % Amount of Doppler for simulation
+dopplerCorrection = 0;
+doppler = 2.45;%0.000132;%0.0001 % Amount of Doppler for simulation
 maxDoppler = 0.001; % Absolute value defining the range in which to estimate the Doppler
 % dopplerStep = 0.1; % Size of the steps in the range of Doppler
 dopplerStep = 0.1*2*pi/((length(caUpsampled)-1)*Ts);
@@ -56,15 +56,15 @@ fprintf('DopplerStep: %f\n',dopplerStep);
 fcorr = 0.0001;
 
 % Clock offset
-clockOffsetEnabled = 1;
-clockOffsetCorrection = 1;
+clockOffsetEnabled = 0;
+clockOffsetCorrection = 0;
 USFOffsetSimulation = 4; % USF used to simulate clock offset
 clockSampleOffset = 1; % Offset (in #samples) of the clock
 USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
 
 % Random cut
-randomCutEnabled = 1;
-startPos = randi([1,length(caUpsampled)/2]);
+randomCutEnabled = 0;
+startPos = randi([length(caUpsampled)/2,length(caUpsampled)-1]);
 
 %
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -97,6 +97,8 @@ t = (0:(length(rxSignalImpaired)-1))*Ts;
 if doppler ~= 0
     fprintf('Doppler added: %f\n', doppler);
     rxSignalImpaired = rxSignalImpaired.*exp(1j*2*pi*doppler*t);
+    subplot(1,2,1),plot(rxSignal(1:500),'.')
+    subplot(1,2,2),plot(rxSignalImpaired(1:500),'.')
 else
    disp('No Doppler'); 
 end
@@ -143,6 +145,7 @@ if dopplerCorrection == 1
     
     % Intial phase estimation
     initialPhaseEstimate = angle(sum(matchedFilterOutput(tauEstimate:tauEstimate+length(caUpsampled)-1).*conj(caUpsampled)));
+    fprintf('Initial phase estimate: %f\n', initialPhaseEstimate);
     
     % Initial phase removal
     matchedFilterOutput = matchedFilterOutput .* exp(-1j*initialPhaseEstimate);
@@ -174,11 +177,14 @@ end
 symbolsEstimates = matchedFilterOutput(tauEstimate:USF*USFClockOffsetCorrection:tauEstimate+length(caUpsampled)*numFullCAToKeep-1);
 
 % Plot the constellation
-scatter(real(symbolsEstimates), imag(symbolsEstimates),'.');
-hold on;
-scatter([-1 1],[0 0], 'kx');
-axis([-1.5,1.5,-1.5,1.5]);
-grid on;
+for k = 1:numFullCAToKeep
+    figure;
+    scatter(real(symbolsEstimates(1:length(ca)*k)), imag(symbolsEstimates(1:length(ca)*k)),'.');
+    hold on;
+    scatter([-1 1],[0 0], 'kx');
+    axis([-1.5,1.5,-1.5,1.5]);
+    grid on;
+end
 
 map = pskMap(2);
 % size(symbols(1:length(ca)*numFullCAToKeep))
