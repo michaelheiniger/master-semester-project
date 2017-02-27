@@ -33,9 +33,9 @@ if mode
     OutputDataTypeUSRP = 'double';
     gainTx = 60; %60 loopback 30dB attenuator; % 89 over the air, no attenuator
     gainRx = 40;
-    samplesPerFrameRx = 1e5; % max is 375000 in a burst
-    loopback = false; % true/false: receive with the same board or not
-    burstMode = false; % NOT the same "burst mode" as in the docunentation
+    samplesPerFrameRx = 2e5; % max is 375000 in a burst
+    loopback = true; % true/false: receive with the same board or not
+    burstMode = false;
     txRxDuration = 3; % in seconds, continous transmission
     
     Ts = interpolationTx/clockRateTx; % 1e-6; % [s] sampling time
