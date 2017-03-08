@@ -28,6 +28,8 @@ fprintf('Mode of operation: %s \n\n', mode)
 rxEnabled = 1;
 txEnabled = 1;
 
+burstMode = 0;
+
 % Source data
 load('CAcodes.mat');
 ca = satCAcodes(1,:);
@@ -36,7 +38,7 @@ symbols = repmat(ca,1,N);
 
 noCAtoDropFromStart = 40;
 noCAtoKeep = 45; % (> 1) Number of CA to keep (first complete one included)
-idCaToShow = 1:10:40;
+idCaToShow = [1:10 20 30 40];
 
 % Number of frames that will be captured by receiver
 % (not currently used by the simulator, only by the USRP)
@@ -85,19 +87,19 @@ fprintf('Receive: %s frames (%s CA codes worth of samples) \n', num2str(noFrames
 switch mode
     case 'loopback' 
         % One board, receives its own transmission through cable
-        rxInst = RxTxUSRP('B200', '30C5426', '30C5426', 1, 1, samplesPerFrame);
+        rxInst = RxTxUSRP('B200', '30C5426', '30C5426', 1, 1, burstMode, samplesPerFrame);
         txInst = rxInst;
         
         % Transmit / Receive on the same board
         dataRx = rxInst.transmitReceive(dataTx, noFramesRx); 
     case 'oneBoard'
-        rxInst = RxTxUSRP('B200', '30C5426', '30C5426',rxEnabled, txEnabled, samplesPerFrame);
+        rxInst = RxTxUSRP('B200', '30C5426', '30C5426', rxEnabled, txEnabled, burstMode, samplesPerFrame);
         txInst = rxInst;
         
         dataRx = rxInst.transmitReceive(dataTx, noFramesRx);
     case 'twoBoards'
         % Two boards, one transmit, the other receives
-        rxInst = RxTxUSRP('B200', '30C5426', '30C51BC', 1, 1, samplesPerFrame);
+        rxInst = RxTxUSRP('B200', '30C5426', '30C51BC', 1, 1, burstMode, samplesPerFrame);
         txInst =  rxInst;
         
         % Transmit one one board, receive on the other one
@@ -157,10 +159,15 @@ title('Matched-filter output');
 caUpsampledClockOffset = upsample(caUpsampled, USFClockOffsetCorrection);
 MFOutputUpsampled = resample(MFOutput, USFClockOffsetCorrection, 1);
 
+
 % Doppler shift estimation and correction
 fprintf('\nDoppler shift estimation and correction');
-
 [signalCorrected, tauEst] = dopplerEstimationAndCorrection(MFOutput, caUpsampled, Ts, maxDoppler, dopplerCorrection);
+
+% Doppler shift estimation and correction from upsampled signal (to account
+% for the clock offset as well)
+fprintf('\n Doppler shift estimation and correction for upsampled signal \n');
+[signalUpsampledCorrected, ~] = dopplerEstimationAndCorrection(MFOutputUpsampled, caUpsampledClockOffset, Ts/USFClockOffsetCorrection, maxDoppler, dopplerCorrection);
 
 figure;
 hax=axes;
@@ -175,11 +182,6 @@ line([VL2 VL2],get(hax,'YLim'), 'Color', [1 0 0]);
 line([VL3 VL3],get(hax,'YLim'), 'Color', [0 1 0]);
 line([VL4 VL4],get(hax,'YLim'), 'Color', [0 1 0]);
 
-
-% Doppler shift estimation and correction from upsampled signal (to account
-% for the clock offset as well)
-fprintf('\n Doppler shift estimation and correction for upsampled signal \n');
-[signalUpsampledCorrected, ~] = dopplerEstimationAndCorrection(MFOutputUpsampled, caUpsampledClockOffset, Ts/USFClockOffsetCorrection, maxDoppler, dopplerCorrection);
 
 % Sample the matched filter to get the symbols estimates
 symbolsEstimates = signalCorrected(1:USF:length(caUpsampled)*noCAtoKeep-1);

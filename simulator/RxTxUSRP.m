@@ -23,6 +23,7 @@ classdef RxTxUSRP < TxRxInterface
         gainRx
         samplesPerFrame
         burstMode
+        noFramesInBurst
     end
     
     properties (Dependent, GetAccess = public)
@@ -30,7 +31,7 @@ classdef RxTxUSRP < TxRxInterface
     end
     
     methods (Access = public)
-        function obj = RxTxUSRP(boardPlatform, serialNumberRx, serialNumberTx, rxEnabled, txEnabled, samplesPerFrame)
+        function obj = RxTxUSRP(boardPlatform, serialNumberRx, serialNumberTx, rxEnabled, txEnabled, burstMode, samplesPerFrame)
             
             if nargin == 0
                 error('Missing arguments');
@@ -51,7 +52,8 @@ classdef RxTxUSRP < TxRxInterface
             obj.gainTx = 60; %60 loopback 30dB attenuator; % 89 over the air, no attenuator
             obj.gainRx = 40;
             obj.samplesPerFrame = samplesPerFrame;
-            obj.burstMode = false;
+            obj.burstMode = burstMode;
+            obj.noFramesInBurst = 3;
             
             if rxEnabled
                 obj.rx = getReceiver(obj);
@@ -147,11 +149,10 @@ classdef RxTxUSRP < TxRxInterface
                 'ClockSource', obj.clockInputSource,...
                 'UnderrunOutputPort', true);
             
-            %             if obj.burstMode
-            %                 tx.EnableBurstMode = true;
-            %                 noFrames = 20; % floor(length(pufiltered)/samplesPerFrameRx) % for other TxRx option, does not seem to work
-            %                 tx.NumFramesInBurst = noFrames;
-            %             end
+            if obj.burstMode
+                tx.EnableBurstMode = true;
+                tx.NumFramesInBurst = obj.noFramesInBurst;
+            end
             
         end
         
@@ -170,10 +171,10 @@ classdef RxTxUSRP < TxRxInterface
                 'OutputDataType', obj.outputDataTypeUSRP,...
                 'OverrunOutputPort', true);
             
-            %             if obj.burstMode
-            %                 rx.EnableBurstMode = true;
-            %                 rx.NumFramesInBurst = noFrames;
-            %             end
+            if obj.burstMode
+                rx.EnableBurstMode = true;
+                rx.NumFramesInBurst = obj.noFramesInBurst;
+            end
             
         end
     end

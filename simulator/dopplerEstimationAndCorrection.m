@@ -1,18 +1,17 @@
-function [ signalCorrected ] = dopplerEstimationAndCorrection(signal, referenceSignal, Ts, maxDoppler, fcorr, dopplerCorrection)
+function [ signalCorrected, tauEst ] = dopplerEstimationAndCorrection(signal, referenceSignal, Ts, maxDoppler, dopplerCorrection)
 %DOPPLERESTIMATIONANDCORRECTION Summary of this function goes here
 %   Detailed explanation goes here
 
 % Doppler step computation
 dopplerStep = 0.1/((length(referenceSignal)-1)*Ts);
 fprintf('DopplerStep: %f\n', dopplerStep);
-fcorr = dopplerStep;
 
 % Doppler shift coarse estimation
 [tauEst, dopplerCoarseEst] = dopplerCoarseEstimate(signal, Ts, referenceSignal, maxDoppler, dopplerStep);
 fprintf('Tau: %d, Coarse doppler estimate: %f, doppler range: [%f,%f], step: %f\n', tauEst, dopplerCoarseEst, -maxDoppler/2, maxDoppler/2, dopplerStep)
 
 % Doppler shift fine estimation
-dopplerFineEst = dopplerFineEstimate(signal(tauEst:end), referenceSignal, Ts, dopplerCoarseEst, fcorr);
+dopplerFineEst = dopplerFineEstimate(signal(tauEst:end), referenceSignal, Ts, dopplerCoarseEst, dopplerStep);
 fprintf('Fine doppler estimate: %f\n', dopplerFineEst);
 
 % Remove irrelevant part of the signal
@@ -35,4 +34,3 @@ if dopplerCorrection == 1
 end
 
 end
-

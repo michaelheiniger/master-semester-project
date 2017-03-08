@@ -6,8 +6,10 @@ if length(signal) < length(referenceSignal)
     error('Signal must at least as long as the reference signal.');
 elseif length(signal) >= 2*length(referenceSignal)-1
     signalTruncated = signal(1:2*length(referenceSignal)-1);
+    disp('Doppler coarse case 2');
 else
     signalTruncated = signal;
+    disp('Doppler coarse case 3');
 end
 
 % Time axis used to correct for Doppler shift
@@ -18,6 +20,8 @@ dopplerRange = -maxDoppler/2:dopplerStep:maxDoppler/2;
 
 % Save the value of the max correlation
 maxCorrelation = 0;
+
+tauEstimate = 1;
 
 % Exhaustive search of the best Doppler shift in the given range
 for k = dopplerRange
