@@ -65,7 +65,7 @@ classdef RxTxUSRP < TxRxInterface
         end
         
         function dataRx = transmitReceive(obj, dataTx, noFramesRx)
-            
+                        
             if mod(length(dataTx),obj.samplesPerFrame) ~= 0
                 error('The number of samples to transmit is not a multiple of the frame size.');
             end
@@ -76,9 +76,10 @@ classdef RxTxUSRP < TxRxInterface
             
             dataRx = zeros(1, noFramesRx*obj.samplesPerFrame);
             
+            disp('Start transmit/receive...');
             k = 1;
             l = 1;
-            while k <= noFramesRx || l <= noFramesTx
+            while (k <= noFramesRx && obj.rxEnabled) || (l <= noFramesTx &&  obj.txEnabled)
                 
                 if k <= noFramesRx && obj.rxEnabled
                     % Receive samples
@@ -97,6 +98,8 @@ classdef RxTxUSRP < TxRxInterface
                     l = l+1;
                 end
             end
+            
+            disp('Transmit/receive done');
         end
         
         function releaseTransmitter(obj)
