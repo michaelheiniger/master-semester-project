@@ -53,7 +53,7 @@ classdef RxTxUSRP < TxRxInterface
             obj.gainRx = 40;
             obj.samplesPerFrame = samplesPerFrame;
             obj.burstMode = burstMode;
-            obj.noFramesInBurst = 3;
+            obj.noFramesInBurst = 154;
             
             if rxEnabled
                 obj.rx = getReceiver(obj);
@@ -96,7 +96,6 @@ classdef RxTxUSRP < TxRxInterface
                     obj.tx(dataTx(1+(l-1)*obj.samplesPerFrame:l*obj.samplesPerFrame).');
                     l = l+1;
                 end
-                
             end
         end
         
@@ -120,22 +119,7 @@ classdef RxTxUSRP < TxRxInterface
     end
     
     methods (Access = private)
-        
-        function [] = checkDevicesConnection(obj)
-            
-            usrp1 = findsdru(obj.serialNumberRx);
-            
-            if strcmp(obj.serialNumberRx, obj.serialNumberTx)
-                usrp2 = usrp1;
-            else
-                usrp2 = findsdru(obj.serialNumberTx);
-            end
-            
-            if not(strcmp(usrp1.Status,'Success')) || not(strcmp(usrp2.Status,'Success'))
-                error('Connection error with the device(s).');
-            end
-        end
-        
+         
         function tx = getTransmitter(obj)
             
             tx = comm.SDRuTransmitter(...
@@ -175,7 +159,30 @@ classdef RxTxUSRP < TxRxInterface
                 rx.EnableBurstMode = true;
                 rx.NumFramesInBurst = obj.noFramesInBurst;
             end
+        end
+        
+        function [] = checkDevicesConnection(obj)
+                        
+            if strcmp(obj.serialNumberRx, obj.serialNumberTx)
+                if obj.rxEnabled
+                    usrpRx = findsdru(obj.serialNumberRx);
+                    usrpTx = usrpRx;
+                elseif obj.txEnabled
+                   usrpTx = findsdru(obj.serialNumberTx); 
+                   usrpRx = usrpTx;
+                end
+            else
+                if obj.rxEnabled
+                    usrpRx = findsdru(obj.serialNumberRx);
+                end
+                if obj.txEnabled
+                    usrpTx = findsdru(obj.serialNumberTx); 
+                end
+            end
             
+            if not(strcmp(usrpRx.Status,'Success')) || not(strcmp(usrpTx.Status,'Success'))
+                error('Connection error with the device(s).');
+            end
         end
     end
 end
