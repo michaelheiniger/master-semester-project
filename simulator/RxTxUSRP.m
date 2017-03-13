@@ -180,7 +180,11 @@ classdef RxTxUSRP < TxRxInterface
                 end
             end
             
-            if not(strcmp(usrpRx.Status,'Success')) || not(strcmp(usrpTx.Status,'Success'))
+            errorMsg = 'Connection error with the device(s).';
+            if obj.rxEnabled && not(strcmp(usrpRx.Status,'Success'))
+                error(errorMsg);
+            end
+            if obj.txEnabled && not(strcmp(usrpTx.Status,'Success'))
                 error('Connection error with the device(s).');
             end
         end
