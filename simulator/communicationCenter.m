@@ -238,3 +238,7 @@ if rxEnabled
     fprintf('BER: %f \n', BER);
     fprintf('BER (Upsampled): %f \n', BERUpsampled);
 end
+
+fprintf('Instance terminated on %s \n\n',datestr(now))
+
+
