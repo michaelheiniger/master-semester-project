@@ -24,10 +24,10 @@ fprintf('Mode of operation: %s \n\n', mode)
 
 % Enable or disable Rx and Tx for the mode 'oneBoard'.
 % (Parameters ignored for other modes)
-rxEnabled = 0;
-txEnabled = 1;
+rxEnabled = 1;
+txEnabled = 0;
 
-burstMode = 1;
+burstMode = 0 ;
 fprintf('Burst mode enabled: %s \n\n', num2str(burstMode))
 
 % Source data
@@ -40,9 +40,7 @@ noCAtoDropFromStart = 40;
 noCAtoKeep = 45; % (> 1) Number of CA to keep (first complete one included)
 idCaToShow = [1:10 20 30 40];
 
-% Number of frames that will be captured by receiver
-% (not currently used by the simulator, only by the USRP)
-noFramesRx = 50;
+samplesPerFrame = 1e5; % max is 375000 in a burst
 
 % Pulse shaping
 span = 200; 
@@ -56,12 +54,11 @@ caUpsampled = upsample(ca,USF);
 
 % Doppler
 dopplerCorrection = 1;
-maxDoppler = 1000; % Absolute value defining the range in which to estimate the Doppler
+maxDoppler = 2000; % Absolute value defining the range in which to estimate the Doppler
     
 % Clock offset
 USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
 
-samplesPerFrame = 1e5; % max is 375000 in a burst
 % Generate symbol-by-symbol pulse train samples
 dataTx = symbolsToSamples(symbols, pulse, USF);
 
@@ -70,10 +67,17 @@ dataTx = [dataTx zeros(1, padding)];
 
 noFramesTx = ceil(length(dataTx)/samplesPerFrame);
 noCARx = (noFramesRx*samplesPerFrame+1-length(pulse))/(length(ca)*USF); 
-fprintf('Transmit: %s frames for %s CA codes (padding: %s samples) \n', num2str(noFramesTx), num2str(N), num2str(padding));
 
-fprintf('Receive: %s frames (%s CA codes worth of samples) \n', num2str(noFramesRx), num2str(noCARx));
+% Number of frames that will be captured by receiver
+% (not currently used by the simulator, only by the USRP)
+noFramesRx = 20;
 
+if txEnabled
+    fprintf('Transmit: %s frames for %s CA codes (padding: %s samples) \n', num2str(noFramesTx), num2str(N), num2str(padding));
+end
+if rxEnabled
+    fprintf('Receive: %s frames (%s CA codes worth of samples) \n', num2str(noFramesRx), num2str(noCARx));
+end
 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

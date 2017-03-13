@@ -53,7 +53,7 @@ classdef RxTxUSRP < TxRxInterface
             obj.gainRx = 40;
             obj.samplesPerFrame = samplesPerFrame;
             obj.burstMode = burstMode;
-            obj.noFramesInBurst = 154;
+            obj.noFramesInBurst = 10;
             
             if rxEnabled
                 obj.rx = getReceiver(obj);
