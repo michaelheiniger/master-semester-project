@@ -59,6 +59,10 @@ maxDoppler = 2000; % Absolute value defining the range in which to estimate the 
 % Clock offset
 USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
 
+% Number of frames that will be captured by receiver
+% (not currently used by the simulator, only by the USRP)
+noFramesRx = 20;
+
 % Generate symbol-by-symbol pulse train samples
 dataTx = symbolsToSamples(symbols, pulse, USF);
 
@@ -67,10 +71,6 @@ dataTx = [dataTx zeros(1, padding)];
 
 noFramesTx = ceil(length(dataTx)/samplesPerFrame);
 noCARx = (noFramesRx*samplesPerFrame+1-length(pulse))/(length(ca)*USF); 
-
-% Number of frames that will be captured by receiver
-% (not currently used by the simulator, only by the USRP)
-noFramesRx = 20;
 
 if txEnabled
     fprintf('Transmit: %s frames for %s CA codes (padding: %s samples) \n', num2str(noFramesTx), num2str(N), num2str(padding));
