@@ -21,7 +21,7 @@ fprintf('Instance started on %s \n\n',datestr(now))
 %                       other receives
 % USRP boards are always used in half-duplex mode
 
-mode = 'twoBoardsRxTx'; 
+mode = 'simulation'; 
 fprintf('Mode of operation: %s \n\n', mode)
 
 burstMode = 0 ;
@@ -81,7 +81,7 @@ switch mode
     case {'oneBoardRx','oneBoardTx','twoBoardsRxTx','loopback'}
         [dataRx, Fs] = rxTxUSRP(dataTx, samplesPerFrame, mode);
     case 'simulation'
-        [dataRx, Fs] = simulatorPulseShaping(dataTx, length(pulse));
+        [dataRx, Fs] = simulatorPS(dataTx, length(pulse));
     otherwise
         error('Unknown mode of operation.')
 end
