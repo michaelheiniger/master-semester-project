@@ -22,7 +22,7 @@ symbols = repmat(ca,1,N);
 
 noCAtoDropFromStart = 40;
 noCAtoKeep = 50; % (> 1) Number of CA to keep (first complete one included)
-idCaToShow = [1 5 10 20 40];
+idCaToShow = [1 5 10 20 30 40];
 
 % Pulse shaping
 span = 200;
@@ -36,7 +36,7 @@ caUpsampled = upsample(ca,USF);
 
 % Doppler
 dopplerCorrection = 1;
-maxDoppler = 1000; % Absolute value defining the range in which to estimate the Doppler
+maxDoppler = 2000; % Absolute value defining the range in which to estimate the Doppler
     
 % Clock offset
 USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
@@ -53,7 +53,7 @@ if mode
     outputDataTypeUSRP = 'double'; % Difference between transport and output data type ?
     gainTx = 60; %60 loopback 30dB attenuator; % 89 over the air, no attenuator
     gainRx = 40;
-    samplesPerFrameRx = 1.5e5;%205600; %205600 = signal of 40 CA codes %1e5; % max is 375000 in a burst
+    samplesPerFrameRx = 1e5;%205600; %205600 = signal of 40 CA codes %1e5; % max is 375000 in a burst
     loopback = true; % true/false: receive with the same board or not
     burstMode = false;
     sendMode = false;
@@ -98,11 +98,7 @@ txSignal = symbolsToSamples(symbols, pulse, USF);
 if mode % mode==1: USRP, mode==0: Simulation
     %% USRP settings
     
-    %SamplesPerFrame = 362;
-    %Nframes = floor(length(pufiltered)/SamplesPerFrame)
-    
     pufiltered = txSignal;
-    %Ts = interpolationTx/clockRateTx; % already defined above
     
     % find connected radios
     connectedRadios = findsdru
@@ -126,7 +122,7 @@ if mode % mode==1: USRP, mode==0: Simulation
         'SerialNum', usrpBoardSerialNumTx,...
         'Gain', gainTx,...
         'ClockSource', clockInputSource,...
-        'UnderrunOutputPort', true) % Signal when underrun occurs
+        'UnderrunOutputPort', true); % Signal when underrun occurs
     
     if burstMode
         tx.EnableBurstMode = true;
@@ -134,7 +130,7 @@ if mode % mode==1: USRP, mode==0: Simulation
         tx.NumFramesInBurst = noFrames;
     end
     
-    TxInfo = info(tx)
+    TxInfo = info(tx);
     
     % Configure the Rx object
     rx = comm.SDRuReceiver(...
@@ -148,147 +144,40 @@ if mode % mode==1: USRP, mode==0: Simulation
         'SamplesPerFrame', samplesPerFrameRx,...
         'ClockSource', clockInputSource,...
         'OutputDataType', outputDataTypeUSRP,...
-        'OverrunOutputPort', true) % Signal when overrun occurs
+        'OverrunOutputPort', true); % Signal when overrun occurs
     
     if burstMode
         rx.EnableBurstMode = true;
         rx.NumFramesInBurst = noFrames;
     end
     
-    RxInfo = info(rx)
+    RxInfo = info(rx);
     
     fprintf(1,'Length of the Tx data: %d. \n', length(pufiltered));
     
-    % here is with bursts
-    % dataRx = zeros(1, length(pufiltered));
-    % loop over the number of frames
-    % for indexFrame = 1:Nframes
-    %     % transmit
-    %     dataToTx = pufiltered((indexFrame-1)*SamplesPerFrame+1:indexFrame*SamplesPerFrame).';
-    %     %dataTxUSRP = tx(dataToTx);
-    %     step(tx, dataToTx);
-    %     % start receiver
-    %     %dataRxUSRP = rx();
-    %     dataRxUSRP = step(rx);
-    %     dataRx((indexFrame-1)*SamplesPerFrame+1:indexFrame*SamplesPerFrame) = dataRxUSRP;
-    % end
     
-%     figure;
-%     plot(pufiltered); grid on; title('Tx data, after Pulse Shaping');
-    
-    %noFrames = ceil(length(pufiltered)/samplesPerFrameRx);
-        
-    
-    dataRx = [];
-    
-    % try two options for Tx/Rx
-    if sendMode
-        %% old way, not very good
-        % here is continous: we loop to have enough data at Rx
-%         for k = 1:6
-%             dataTxUSRP  = tx(pufiltered.');
-%             [dataRxUSRP,len,lostSamples] = rx();
-%             fprintf(1, 'Receive frame %i in the burst, lost samples at Rx: %i. \n', k, lostSamples);
-%         end
-%         dataRx = dataRxUSRP.';
-        
-    else
-        %% new way from Ethem Sozer @mathworks
-%         t = 0;
-%         tFrame = rx.SamplesPerFrame/(rx.MasterClockRate/rx.DecimationFactor); % duration of one frame
-%         margin = 0.5; % seconds
-%         txRxDuration = 4; % tFrame*noFrames;
-%         fprintf('tx/rx duration: %f \n', txRxDuration);
-%         
-%         send = 2;
-%          while t < txRxDuration
-%             [dataRxUSRP, len, overrun] = rx();
-% 
-%             if len > 0
-% %                 fprintf('Length: %d at t = %f \n',len, t);
-% %                 outAGC = hAGC(dataRxUSRP);
-% %                 dataRx = outAGC.'; 
-% %                 dataRx = [dataRx outAGC.'];
-%                   dataRx = [dataRx dataRxUSRP.'];
-% %                   size(dataRxUSRP)
-% %                   size(dataRx)
-%                 if mod(send,2) == 0
-%                     disp('transmit...');
-%                     tx(pufiltered.');
-%                 end
-%                 send = send + 1;
-%                 t = t + tFrame;
-%             end
-%         end
-
+ 
 
         noFrames = floor(length(pufiltered)/rx.SamplesPerFrame); %floor(txRxDuration/tFrame);
         dataRx = zeros(1, noFrames*rx.SamplesPerFrame);
         l = 1; w = 1;
         while l <= noFrames
             [dataRxUSRP, len, overrun] = rx();
-%             fprintf(1,'While loop %i. \n', w);
-            w = w+1;
+
             if len > 0
                 dataRx(1+(l-1)*rx.SamplesPerFrame:l*rx.SamplesPerFrame) = dataRxUSRP.';
                 dataTxUSRP = tx(pufiltered(1+(l-1)*rx.SamplesPerFrame:l*rx.SamplesPerFrame).');
-%                 fprintf(1, 'Tx frame %i out of %i. \n', l, noFrames);
                 l = l+1;
             end
         end
-
-%         dataRx = zeros(1, noFrames*rx.SamplesPerFrame);
-%         for l = 1:noFrames
-%             [dataRxUSRP, len, overrun] = rx();
-%             dataRx(1+(l-1)*rx.SamplesPerFrame:l*rx.SamplesPerFrame) = dataRxUSRP.';
-%         end
-
-
-
-%         while t < txRxDuration %
-%             [dataRxUSRP, len] = rx();
-%             fprintf('Length: %d at t = %f \n',len, t);
-%             if len > 0
-%                 dataRx = [dataRx dataRxUSRP.'];
-%                 dataTxUSRP = tx(pufiltered.');
-%                 t = t + tFrame;
-%             end
-%         end
-    end
-    
-    %% yet another way as in usrpReceiveSamples.m
-    %     totalSamples = no_frames*samplesPerFrameRx;
-    %
-    %     for k = 1:3
-    %         toto = zeros(totalSamples, 1);
-    %         samplesLost = 0;
-    %
-    %         for l = 1:no_frames
-    %             dataTxUSRP  = tx(pufiltered(1+(l-1)*samplesPerFrameRx:l*samplesPerFrameRx).');
-    %             [dataRxUSRP,len,lostSamples] = rx();
-    %             samplesLost = samplesLost + lostSamples;
-    %             %fprintf(1, 'File %i, frame %i, lost samples at Rx: %i. \n', k, l, lostSamples);
-    %             toto(1+(l-1)*samplesPerFrameRx:l*samplesPerFrameRx) = dataRxUSRP;
-    %         end
-    %     end
-    %
-    %     fprintf(1, 'Lost samples at Rx: %i. \n', samplesLost);
-    %
-    %     fileName = 'dataRxTmp.mat';
-    %     save(fileName, '-v7.3', 'toto');
-    %     dataRx = toto.';
-
-    %%
+        
     % release the objects
     release(tx)
     release(rx)
     
-%     fprintf(1, 'Length of Tx data for USRP: %d. \n', length(dataTxUSRP));
     fprintf(1, 'Length of Rx data for USRP: %d. \n', length(dataRx));
     
-    % dataRxUSRP = dataRxUSRP - mean(dataRxUSRP); % remove DC offset
-    % dataRxUSRP = dataRxUSRP/var(dataRxUSRP); % set to var 1
-    
+
 %     scatterplot(dataRx);
 %     grid on; 
 %     title('Received Sequence');
@@ -307,9 +196,7 @@ if mode % mode==1: USRP, mode==0: Simulation
     VL2 = stopData;
     line([VL1 VL1],get(hax,'YLim'), 'Color', [1 0 0]);
     line([VL2 VL2],get(hax,'YLim'), 'Color', [1 0 0]);
-    
-    %dataRx = dataRx - mean(dataRx);
-    
+
     rxSignalImpaired = dataRx1;
 
 else % SIMULATION
@@ -318,8 +205,6 @@ else % SIMULATION
     % Impairement simulations
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    
-    
     dataRx1 = txSignal;
     rxSignalImpaired = txSignal;
 
