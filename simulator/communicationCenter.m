@@ -12,20 +12,17 @@ fprintf('Instance started on %s \n\n',datestr(now))
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Possible modes: 
-% - 'simulation':   simulates impairements such as AWGN, Doppler, clock offset,... 
-% - 'loopback':     one USRP board receives its own transmission 
-%                   --> Tx and Rx ports need to be linked by cable 
-% - 'oneBoard':     one USRP board receives and/or transmits (e.g two USRPs,
-%                   two host computers)
-% - 'twoBoards':    two USRP boards on the same computer: one transmits, the
-%                   other receives (each board is half-duplex)
-mode = 'oneBoard'; 
-fprintf('Mode of operation: %s \n\n', mode)
+% - 'simulation':       simulates impairements such as AWGN, Doppler, clock offset,... 
+% - 'loopback':         one USRP board receives its own transmission 
+%                       --> Tx and Rx ports need to be linked by cable 
+% - 'oneBoardTx':       one USRP board transmits 
+% - 'oneBoardRx':       one USRP board receives
+% - 'twoBoardsRxTx':    two USRP boards on the same computer: one transmits, the
+%                       other receives
+% USRP boards are always used in half-duplex mode
 
-% Enable or disable Rx and Tx for the mode 'oneBoard'.
-% (Parameters ignored for other modes)
-rxEnabled = 1;
-txEnabled = 0;
+mode = 'twoBoardsRxTx'; 
+fprintf('Mode of operation: %s \n\n', mode)
 
 burstMode = 0 ;
 fprintf('Burst mode enabled: %s \n\n', num2str(burstMode))
@@ -37,8 +34,8 @@ N = 1000; % Number of repetition of CA code (N > 1)
 symbols = repmat(ca,1,N);
 
 noCAtoDropFromStart = 40;
-noCAtoKeep = 45; % (> 1) Number of CA to keep (first complete one included)
-idCaToShow = [1:10 20 30 40];
+noCAtoKeep = 50; % (> 1) Number of CA to keep (first complete one included)
+idCaToShow = [1 5 10 20 30 40];
 
 samplesPerFrame = 1e5; % max is 375000 in a burst
 
@@ -46,7 +43,7 @@ samplesPerFrame = 1e5; % max is 375000 in a burst
 span = 200; 
 USF = 5; % upsampling factor
 	 
-beta = 0.5;  % roll-off factor
+beta = 0.8;  % roll-off factor
 pulse = rcosdesign(beta, span, USF, 'sqrt'); % already normalized to 1
 % fvtool(pulse, 'Analysis', 'impulse')   % Visualize the filter
 
@@ -59,24 +56,16 @@ maxDoppler = 2000; % Absolute value defining the range in which to estimate the 
 % Clock offset
 USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
 
-% Number of frames that will be captured by receiver
-% (not currently used by the simulator, only by the USRP)
-noFramesRx = 20;
-
 % Generate symbol-by-symbol pulse train samples
 dataTx = symbolsToSamples(symbols, pulse, USF);
 
-padding = ceil(length(dataTx)/samplesPerFrame)*samplesPerFrame-length(dataTx);
-dataTx = [dataTx zeros(1, padding)];
+% Pad with zeros to make an integer number of frames
+dataTx = padLastFrameWithZeros(dataTx, samplesPerFrame);
 
-noFramesTx = ceil(length(dataTx)/samplesPerFrame);
-noCARx = (noFramesRx*samplesPerFrame+1-length(pulse))/(length(ca)*USF); 
+noFrames = length(dataTx)/samplesPerFrame;
 
-if txEnabled
-    fprintf('Transmit: %s frames for %s CA codes (padding: %s samples) \n', num2str(noFramesTx), num2str(N), num2str(padding));
-end
-if rxEnabled
-    fprintf('Receive: %s frames (%s CA codes worth of samples) \n', num2str(noFramesRx), num2str(noCARx));
+if strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardTx') ||  strcmp(mode, 'twoBoardsRxTx')
+    fprintf('Transmit: %s frames for %s CA codes \n', num2str(noFrames), num2str(N));
 end
 
 %%
@@ -89,57 +78,17 @@ end
 % title('Signal to transmit')
 
 switch mode
-    case 'loopback' 
-        
-        if samplesPerFrame > 1e5
-            warning('samplePerFrame > 1e5 leads to overrun: the board drops samples')
-        end
-        rxEnabled = 1;
-        txEnabled = 1;
-        
-        % One board, receives its own transmission through cable
-        rxInst = RxTxUSRP('B200', '30C5426', '30C5426', rxEnabled, txEnabled, burstMode, samplesPerFrame);
-        txInst = rxInst;
-        
-        % Transmit / Receive on the same board
-        dataRx = rxInst.transmitReceive(dataTx, noFramesRx); 
-    case 'oneBoard'
-        rxInst = RxTxUSRP('B200', '30C5426', '30C5426', rxEnabled, txEnabled, burstMode, samplesPerFrame);
-        txInst = rxInst;
-        
-        dataRx = rxInst.transmitReceive(dataTx, noFramesRx);
-    case 'twoBoards'
-        
-        rxEnabled = 1;
-        txEnabled = 1;
-        
-        % Two boards, one transmit, the other receives
-        rxInst = RxTxUSRP('B200', '30C5426', '30C51BC', rxEnabled, txEnabled, burstMode, samplesPerFrame);
-        txInst =  rxInst;
-        
-        % Transmit one one board, receive on the other one
-        dataRx = rxInst.transmitReceive(dataTx, noFramesRx);
-
+    case {'oneBoardRx','oneBoardTx','twoBoardsRxTx','loopback'}
+        [dataRx, Fs] = rxTxUSRP(dataTx, samplesPerFrame, mode);
     case 'simulation'
-        rxInst = RxTxSimulator(length(pulse));  
-        txInst = rxInst;
-        
-        % Transmit / Receive
-        dataRx = rxInst.transmitReceive(dataTx, noFramesRx);
+        [dataRx, Fs] = simulatorPulseShaping(dataTx, length(pulse));
     otherwise
         error('Unknown mode of operation.')
 end
 
+Ts = 1/Fs;
 
-Ts = rxInst.Ts;
-Fs = 1/Ts;
-
-% Release the objects
-txInst.releaseTransmitter();
-rxInst.releaseReceiver();
-
-
-if rxEnabled
+if strcmp(mode, 'simulation') || strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardRx') ||  strcmp(mode, 'twoBoardsRxTx')
     %
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Signal equalization and decoding
