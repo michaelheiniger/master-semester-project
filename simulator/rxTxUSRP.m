@@ -2,17 +2,25 @@ function [dataRx,Fs] = rxTxUSRP(dataTx, samplesPerFrame, mode)
 %RXTXUSRP Summary of this function goes here
 %   Detailed explanation goes here
 
-serialNumberRx = '30C5426';
-serialNumberTx = '30C51BC';
+serialNumberRx = '30C51BC';
+serialNumberTx = '30C5426';
 
+devicesToCheck = [];
 if strcmp(mode, 'loopback')
-    serialNumberTx = serialNumberRx;
+    serialNumberRx = serialNumberTx;
     if samplesPerFrame > 1e5
         warning('samplePerFrame > 1e5 leads to overrun: the board drops samples.')
     end
+    devicesToCheck = [serialNumberRx];
+elseif strcmp(mode, 'oneBoardTx')
+    devicesToCheck = [serialNumberTx];
+elseif strcmp(mode, 'oneBoardRx')
+    devicesToCheck = [serialNumberRx];
+elseif strcmp(mode, 'twoBoardsRxTx')
+    devicesToCheck = [serialNumberRx; serialNumberTx];
 end
 
-checkDevicesConnection([serialNumberRx;serialNumberTx]);
+checkDevicesConnection(devicesToCheck);
 
 boardPlatform = 'B200';
 fc = 2.4e9; % carrier frequency
@@ -93,6 +101,7 @@ switch mode
     case 'oneBoardTx'
         for l = 1:noFrames
             tx(dataTx(1+(l-1)*samplesPerFrame:l*samplesPerFrame).');
+            dataRx = [];
         end
     otherwise
         error('Unknown mode of operation.')
