@@ -1,4 +1,4 @@
-function [dataRx,Fs] = simulatorPulseShaping(dataTx, lengthPulse)
+function [dataRx,Fs] = simulatorPS(dataTx, lengthPulse)
 %SIMULATORPULSESHAPING Summary of this function goes here
 %   Detailed explanation goes here
 
