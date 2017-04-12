@@ -21,7 +21,7 @@ fprintf('Instance started on %s \n\n',datestr(now))
 %                       other receives
 % USRP boards are always used in half-duplex mode
 
-mode = 'simulation'; 
+mode = 'oneBoardTx'; 
 fprintf('Mode of operation: %s \n\n', mode)
 
 burstMode = 0 ;
@@ -60,7 +60,7 @@ USFClockOffsetCorrection = 10; % USF used to correct for the clock offset
 dataTx = symbolsToSamples(symbols, pulse, USF);
 
 % Pad with zeros to make an integer number of frames
-dataTx = padLastFrameWithZeros(dataTx, samplesPerFrame);
+dataTx = padWithZeros(dataTx, samplesPerFrame);
 
 noFrames = length(dataTx)/samplesPerFrame;
 
