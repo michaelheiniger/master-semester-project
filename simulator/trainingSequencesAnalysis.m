@@ -50,6 +50,9 @@ figure;
 plot(abs(xcorr(stsTime, stsTime)));
 ylabel('|xcorr(STS, STS)|')
 title('Auto-correlation of STS in time domain');
+plot(abs(xcorr(tenStsTime, stsTime)));
+ylabel('|xcorr(10STS, STS)|')
+title('Cross-correlation of 10 STS with 1 STS in time domain');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Long Training Sequence (LTS)
