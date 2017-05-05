@@ -16,7 +16,7 @@ aux = (-(sqrt(M)-1):2:sqrt(M)-1);
 	
 [x, y] = meshgrid(aux, fliplr(aux));
 	
-c = x + 1i*y
+c = x + 1i*y;
 
 % We finally reshape c to be a row vector
 % The columns are stacked on each other as in the homework assignment
