@@ -10,6 +10,7 @@ for k = 1:size(serialNumbersToCheck,1)
     usrp = findsdru(serialNumbersToCheck(k,:));
     
     if not(strcmp(usrp.Status,'Success'))
+        disp(['Device status: ' usrp.Status]);
         error('Connection error with the device.');
     end
 end
