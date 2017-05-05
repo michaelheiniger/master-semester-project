@@ -8,8 +8,22 @@ if ~isempty(decoder)
     return;
 end
 
-% 1 if frequency correction should be done
-decoder.frequencyCorrection = 1;
+% Timing offset
+% add error to timing estimate, in number of samples. 0 means that the
+% estimate is untouched
+decoder.timingError = 0
+
+% 1 if timing offset should be corrected
+decoder.timingOffsetCorrection = 0;
+
+% 1 if carrier frequency offset should be corrected
+decoder.cfoCorrection = 1;
+
+% 1 if sampling frequency offset should be corrected
+decoder.sfoCorrection = 1;
+
+% 1 if channel equalization should be performed
+decoder.equalization = 1;
 
 % 1 if the received signal should be upsample for timing synchronization
 decoder.upsample = 0;
