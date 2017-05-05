@@ -1,4 +1,4 @@
-function lambda = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, numTotalCarriers, numZeros)
+function lambdas = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, numUsedCarriers)
 
 % Adapted from "channel_est3.m" file from SDR course taught by Prof. Rimoldi at EPFL
 % CHANNEL_ESTIMATION Estimate the channel coefficients in the frequency domain
@@ -12,13 +12,14 @@ function lambda = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, numTotalCarr
 
 % LAMBDA: Column vector containing channel coefficients in the frequency domain
 
+% Get the received pilot OFDM symbol
 pilotOfdmSymbolRx = ofdmSymbolsRx(:,1);
-noiseVariance = var(pilotOfdmSymbol-pilotOfdmSymbolRx); %% IS THAT CORRECTLY ESTIMATED ???
+noiseVariance = var(pilotOfdmSymbol-pilotOfdmSymbolRx);
 
 S = diag(pilotOfdmSymbol);
-Kz = diag(noiseVariance*ones(numTotalCarriers-2*numZeros,1));
+Kz = diag(noiseVariance*ones(numUsedCarriers,1));
 
-Ydata = ofdmSymbolsRx(:,2:end-1);
+Ydata = ofdmSymbolsRx(:,2:end);
 
 corMat = zeros(size(Ydata));
 for i = 1:size(Ydata,2)
@@ -29,8 +30,8 @@ for i = 1:size(Ydata,2)
 end
 
 Ky = toeplitz(mean(corMat,2));
-lambda = ((S\(Ky-Kz)) * (Ky\pilotOfdmSymbolRx));
-  
-  
 
+lambdas = ((S\(Ky-Kz)) * (Ky\pilotOfdmSymbolRx));
 
+% TO compare with the division
+% lambda = ofdmSymbolsRx(:,1)./pilotOfdmSymbol;
