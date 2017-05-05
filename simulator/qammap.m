@@ -22,6 +22,6 @@ c = x + 1i*y
 % The columns are stacked on each other as in the homework assignment
 % figures
 c = transpose(c(:));
-normalization = sum(abs(c))/length(c)
+normalization = sum(abs(c))/length(c);
 c = c/normalization;
 
