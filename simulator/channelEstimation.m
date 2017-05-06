@@ -14,21 +14,26 @@ function lambdas = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, numUsedCarr
 
 % Get the received pilot OFDM symbol
 pilotOfdmSymbolRx = ofdmSymbolsRx(:,1);
-noiseVariance = var(pilotOfdmSymbol-pilotOfdmSymbolRx);
+
+% Compute noise variance (model assumed: Y = alpha*X + Z)
+% (Note: it is assumed that re(X) = -im(X))
+X = pilotOfdmSymbol;
+Y = pilotOfdmSymbolRx;
+alpha = mean((real(Y)-imag(Y)) ./ (2*real(X))); % scaling factor
+noiseVariance = mean(imag(Y).^2 - 2*alpha*imag(X).*imag(Y) + (alpha*imag(X)).^2);
 
 S = diag(pilotOfdmSymbol);
-Kz = diag(noiseVariance*ones(numUsedCarriers,1));
+Kz = diag(noiseVariance*ones(numUsedCarriers,1)); % Diagonal since Z is assumed Gaussian independent
 
 Ydata = ofdmSymbolsRx(:,2:end);
 
 corMat = zeros(size(Ydata));
 for i = 1:size(Ydata,2)
     Col = Ydata(:,i);
-    xCol = xcorr(Col,'biased');
+    xCol = xcorr(Col, 'biased');
     xCol = xCol(length(Col):end);
     corMat(:,i) = xCol;
 end
-
 Ky = toeplitz(mean(corMat,2));
 
 lambdas = ((S\(Ky-Kz)) * (Ky\pilotOfdmSymbolRx));
