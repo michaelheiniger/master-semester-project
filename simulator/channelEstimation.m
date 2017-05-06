@@ -16,10 +16,10 @@ function lambdas = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, numUsedCarr
 pilotOfdmSymbolRx = ofdmSymbolsRx(:,1);
 
 % Compute noise variance (model assumed: Y = alpha*X + Z)
-% (Note: it is assumed that re(X) = -im(X))
+% (Note: it is assumed that re(X) = im(X))
 X = pilotOfdmSymbol;
 Y = pilotOfdmSymbolRx;
-alpha = mean((real(Y)-imag(Y)) ./ (2*real(X))); % scaling factor
+alpha = mean((real(Y)+imag(Y)) ./ (2*real(X))); % scaling factor
 noiseVariance = mean(imag(Y).^2 - 2*alpha*imag(X).*imag(Y) + (alpha*imag(X)).^2);
 
 S = diag(pilotOfdmSymbol);
