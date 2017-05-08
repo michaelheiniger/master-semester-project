@@ -49,7 +49,8 @@ signalTx = [tenSts;...
 if strcmp(mode, 'simulation')
     signalTx = repmat([zeros(1000,1); signalTx; zeros(1000,1)],1,1);
 else
-    signalTx = repmat([complex(0.001+1i*0.001+zeros(1.5e5,1)); signalTx; complex(0.001+1i*0.001+zeros(1.5e5,1))],10,1);
+%     signalTx = repmat([complex(0.001+1i*0.001+zeros(1.5e5,1)); signalTx; complex(0.001+1i*0.001+zeros(1.5e5,1))],10,1);
+    signalTx = repmat(signalTx,1000,1);
 end
 
 end
