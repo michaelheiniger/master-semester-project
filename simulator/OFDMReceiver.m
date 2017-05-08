@@ -13,13 +13,13 @@ ylabel('Magnitude');
 title('Absolute value of received signal');
 
 % Timing synchronization and Frequency offset estimation
-[frameRxCorrected, ~] = timingAndFreqOffsetCorrection(signalRx, stsTime, ltsTime, c.numTotalCarriers, c.CPLength, c.twoLtsCpLength, c.numOFDMSymbolsPerFrame);
+[frameRxCorrected, ~] = timingAndFreqOffsetCorrection(signalRx, stsTime, ltsTime, c.numTotalCarriers, c.CPLength, c.twoLtsCpLength, c.numOFDMSymbolsPerFrame, c.Fs);
 
 % Remove preamble
 preambleLength = 10*length(stsTime)+c.twoLtsCpLength+2*length(ltsTime);
 dataRxCorrected = frameRxCorrected(1+preambleLength:end);
 
-% Reshape into a matrix and remove CP
+% Reshape into a matrix and remove cyclic prefix
 dataRxIfftCP = reshape(dataRxCorrected, c.CPLength+c.numTotalCarriers, c.numOFDMSymbolsPerFrame);
 dataRxIFFT = dataRxIfftCP(c.CPLength+1:end,:);
 
@@ -50,10 +50,10 @@ if decoder.timingOffsetCorrection
     ofdmSymbolsRxCorrected = timingOffsetCorrection(ofdmSymbolsRxCorrected, pilotOfdmSymbol);
 end
 
-if decoder.sfoCorrection
-    % Sampling Frequency Offset correction
-    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, pilots1, pilots2, c.numZerosTop, c.numZerosBottom, c.numTotalCarriers, c.dcSubcarrier);
-end
+% if decoder.sfoCorrection
+%     % Sampling Frequency Offset correction
+%     ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, pilots1, pilots2, c.numZerosTop, c.numZerosBottom, c.numTotalCarriers, c.dcSubcarrier);
+% end
    
 % Get indices of used subcarriers (e.g -26,-25,...,+26)
 if c.dcSubcarrier
@@ -63,44 +63,70 @@ else
 end
 
 % Channel estimation using Minimum Mean Squared Error (MMSE)
-% lambdas = channelEstimation(ofdmSymbolsRxCorrected, pilotOfdmSymbol, c.numUsedCarriers);
+lambdasMMSE = channelEstimation(ofdmSymbolsRxCorrected, pilotOfdmSymbol, c.numUsedCarriers);
 lambdas = ofdmSymbolsRxCorrected(:,1) ./ pilotOfdmSymbol;
 
-% Plot of the channel coefficients
 figure;
 xAxis = usedSubcarriersIndices;
-plot(xAxis, abs(lambdas),'.-');
+subplot(1,2,1),
+plot(xAxis, abs(lambdas),'r.-');
+hold on;
+plot(xAxis, abs(lambdasMMSE), 'b.-');
 ylabel('Magnitude');
 xlabel('Subcarriers index');
-title('Magnitude evolution over subcarriers');
 grid on;
+
+subplot(1,2,2),
+plot(xAxis, angle(lambdas),'r.-');
+hold on;
+plot(xAxis, angle(lambdasMMSE), 'b.-');
+ylabel('Phase');
+xlabel('Subcarriers index');
+grid on;
+
+% Plot of the channel coefficients
+% figure;
+% xAxis = usedSubcarriersIndices;
+% plot(xAxis, abs(lambdas),'.-');
+% ylabel('Magnitude');
+% xlabel('Subcarriers index');
+% title('Channel coefficients estimates');
+% grid on;
 
 % Equalization of the symbols
 if decoder.equalization
-    ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected ./ repmat(lambdas, 1, c.numOFDMSymbolsPerFrame);
+    ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected ./ repmat(lambdasMMSE, 1, c.numOFDMSymbolsPerFrame);
+%     ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected ./ repmat(lambdas, 1, c.numOFDMSymbolsPerFrame);
 end
 
 % Plot of the channel coefficients for the whole frame (using division and
 % NOT MMSE)
 if c.dcSubcarrier
     % Compute channel coefficients, DC subcarrier excluded (it is only zeros)
-    lambdaAllSymbols = ofdmSymbolsRx./[dataFrame(1+c.numZerosTop:c.numTotalCarriers/2,:);dataFrame(2+c.numTotalCarriers/2:end-c.numZerosBottom,:)];
+    lambdaAllSymbols = ofdmSymbolsRxCorrected./[dataFrame(1+c.numZerosTop:c.numTotalCarriers/2,:);dataFrame(2+c.numTotalCarriers/2:end-c.numZerosBottom,:)];
 else    
     % Compute channel coefficients, DC subcarrier included
-    lambdaAllSymbols = ofdmSymbolsRx./dataFrame(1+c.numZerosTop:end-c.numZerosBottom,:);
+    lambdaAllSymbols = ofdmSymbolsRxCorrected./dataFrame(1+c.numZerosTop:end-c.numZerosBottom,:);
 end
 figure;
 xAxis = usedSubcarriersIndices;
 subplot(2,1,1),plot(xAxis, angle(lambdaAllSymbols),'.-');
-ylabel('Angle [rad]');
+ylabel('Phase [rad]');
 xlabel('Subcarriers index');
 title('Phase evolution over subcarriers for the whole frame');
 grid on;
+% axis([-35,35,-0.5,0.5]);
 subplot(2,1,2),plot(xAxis, abs(lambdaAllSymbols),'.-');
 ylabel('Magnitude');
 xlabel('Subcarriers index');
 title('Magnitude evolution over subcarriers for the whole frame');
 grid on;
+% axis([-35,35,0.8,1.1]);
+
+if decoder.sfoCorrection
+    % Sampling Frequency Offset correction
+    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, pilots1, pilots2, c.numZerosTop, c.numZerosBottom, c.numTotalCarriers, c.dcSubcarrier);
+end
 
 % Split symbols sent on outer-subcarriers and inner-subcarriers to show the
 % effect of SFO on outer-subcarriers. Enabled only when no guard bands are
@@ -152,7 +178,8 @@ plot(infoSymbolInnerSCCorrectedEst, 'b.');
 plot(qammap(c.M), 'gx');
 xlabel('In-phase');
 ylabel('Quadrature');
-title([num2str(c.M) '-QAM constellation at receiver (SFO corrected and equalized)']);
+% title([num2str(c.M) '-QAM constellation at receiver (SFO corrected and equalized)']);
+title([num2str(c.M) '-QAM constellation at receiver']);
 
 % legend(['Outer SC symbols (2*' num2str(outerSubcarrierRatio*100/2) '%)'], ['Inner SC symbols (' num2str(100*(1-outerSubcarrierRatio)) '%)'], 'QAM points');
 
