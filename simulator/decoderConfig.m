@@ -11,7 +11,7 @@ end
 % Timing offset
 % add error to timing estimate, in number of samples. 0 means that the
 % estimate is untouched
-decoder.timingError = 0
+decoder.timingOffset = 0
 
 % 1 if timing offset should be corrected
 decoder.timingOffsetCorrection = 0;
