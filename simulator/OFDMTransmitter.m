@@ -1,4 +1,4 @@
-function [signalTx, dataFrame] = OFDMTransmitter(config, mode, dataSymbolsTx, stsTime, ltsTime, pilotOfdmSymbol, pilots1, pilots2)
+function [signalTx, dataFrame] = OFDMTransmitter(config, mode, dataSymbolsTx, stsTime, ltsTime, pilotOfdmSymbol, pilots1, pilots2, ca)
 
 c = config;
 
@@ -44,6 +44,9 @@ dataFrameIFFTWithCp = [dataFrameIFFT(end-c.CPLength+1:end,:);...
 signalTx = [tenSts;...
            twoLtsWithCp;...
            dataFrameIFFTWithCp(:)];
+       
+% Prepand with CA code
+signalTx = [ca.'; signalTx];
        
 % Add garbage before and after OFDM frame and repeat
 if strcmp(mode, 'simulation')
