@@ -31,6 +31,9 @@ dataRxIFFT = dataRxIfftCP(c.CPLength+1:end,:);
 % frame)
 ofdmSymbolsRx = ifftshift(fft(dataRxIFFT, c.NFFT),1);
 
+% Extract received pilot OFDM symbol
+pilotOfdmSymbolRx = ofdmSymbolsRx(:,1);
+
 % Remove guard bands (i.e. outer-zero-subcarriers)
 ofdmSymbolsRx = ofdmSymbolsRx(1+c.numZerosTop:end-c.numZerosBottom,:);
 
@@ -40,12 +43,17 @@ if c.dcSubcarrier
                      ofdmSymbolsRx(2+c.numTotalCarriers/2-c.numZerosTop:end,:)];
 end
 
-% Save received symbols to compare with symbols corrected for SFO and
-% equalized
-ofdmSymbolsRxCorrected = ofdmSymbolsRx;
-
-% Add pilot subcarrier to OFDM pilot symbol
+% Add pilot subcarriers to OFDM pilot symbol
 pilotOfdmSymbol = [pilots1(1); pilotOfdmSymbol; pilots2(1)];
+
+% Channel estimation using Minimum Mean Squared Error (MMSE)
+lambdasMMSE = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, c.numUsedCarriers, c.numTotalCarriers, c.numZerosBottom, c.numZerosTop);
+
+if c.dcSubcarrier
+    lambdas = [pilotOfdmSymbolRx(c.numZerosTop+1:c.numTotalCarriers/2);pilotOfdmSymbolRx(2+c.numTotalCarriers/2:end-c.numZerosBottom)] ./ pilotOfdmSymbol;
+else
+    lambdas = pilotOfdmSymbolRx(1+c.numZerosTop:end-c.numZerosBottom) ./ pilotOfdmSymbol;
+end
 
 % Get indices of used subcarriers (e.g -26,-25,...,+26)
 if c.dcSubcarrier
@@ -53,10 +61,6 @@ if c.dcSubcarrier
 else
     usedSubcarriersIndices = -c.numTotalCarriers/2+c.numZerosTop:c.numTotalCarriers/2-1-c.numZerosBottom;
 end
-
-% Channel estimation using Minimum Mean Squared Error (MMSE)
-lambdasMMSE = channelEstimation(ofdmSymbolsRxCorrected, pilotOfdmSymbol, c.numUsedCarriers);
-lambdas = ofdmSymbolsRxCorrected(:,1) ./ pilotOfdmSymbol;
 
 % Plot of the channel coefficients
 figure;
@@ -76,6 +80,10 @@ plot(xAxis, angle(lambdasMMSE), 'b.-');
 ylabel('Phase');
 xlabel('Subcarriers index');
 grid on;
+
+% Save received symbols to compare with symbols corrected for SFO and
+% equalized
+ofdmSymbolsRxCorrected = ofdmSymbolsRx;
 
 plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'Before equalization');
 
