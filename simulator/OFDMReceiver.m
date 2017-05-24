@@ -6,11 +6,11 @@ global decoder;
 
 c = config;
 
-figure;
-plot(abs(signalRx));
-xlabel('Samples');
-ylabel('Magnitude');
-title('Absolute value of received signal');
+% figure;
+% plot(abs(signalRx));
+% xlabel('Samples');
+% ylabel('Magnitude');
+% title('Absolute value of received signal');
 
 % Timing synchronization and Frequency offset estimation
 [frameRxCorrected, ~] = timingAndFreqOffsetCorrection(signalRx, stsTime, ltsTime, c.numTotalCarriers, c.CPLength, c.twoLtsCpLength, c.numOFDMSymbolsPerFrame, c.Fs);
@@ -48,6 +48,13 @@ pilotOfdmSymbol = [pilots1(1); pilotOfdmSymbol; pilots2(1)];
 
 % Channel estimation using Minimum Mean Squared Error (MMSE)
 lambdasMMSE = channelEstimation(ofdmSymbolsRx, pilotOfdmSymbol, c.numUsedCarriers, c.numTotalCarriers, c.numZerosBottom, c.numZerosTop);
+
+% Extract the most faded subcarriers indices
+treshold = 0.1;
+lowestChannelCoeffs = quantile(abs(lambdasMMSE), [treshold, 1])
+lowestChannelsCoeffsIndices = find(abs(lambdasMMSE)<= lowestChannelCoeffs(1)).'
+
+% disp(['Most faded subcarriers (' num2str(treshold) '): ' num2str(lowestChannelsCoeffsIndices)]);
 
 if c.dcSubcarrier
     lambdas = [pilotOfdmSymbolRx(c.numZerosTop+1:c.numTotalCarriers/2);pilotOfdmSymbolRx(2+c.numTotalCarriers/2:end-c.numZerosBottom)] ./ pilotOfdmSymbol;
@@ -91,6 +98,8 @@ plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'Before equaliz
 if decoder.equalization
     ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected ./ repmat(lambdasMMSE, 1, c.numOFDMSymbolsPerFrame);
 %     ofdmSymbolsRxCorrected = ofdmS ymbolsRxCorrected ./ repmat(lambdas, 1, c.numOFDMSymbolsPerFrame);
+
+    plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After equalization, before CFO tracking');
 end
 
 % % Plot of the channel coefficients for the whole frame (using division and
@@ -104,22 +113,21 @@ end
 % %     lambdaAllSymbols = ofdmSymbolsRxCorrected(:,end)./dataFrame(1+c.numZerosTop:end-c.numZerosBottom,end);
 % end
 
-plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After equalization, before CFO tracking');
-
 if decoder.cfoTracking
     % Track and remove the residual drifting CFO present in all OFDM symbols due to
     % imperfect estimate of the CFO
     ofdmSymbolsRxCorrected = carrierFrequencyOffsetTracking(ofdmSymbolsRxCorrected, pilots1, pilots2);
+    
+    plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After CFO tracking, before SFO');
 end
-
-plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After CFO tracking, before SFO');
 
 if decoder.sfoCorrection
     % Sampling Frequency Offset correction
     ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, pilots1, pilots2, c.numZerosTop, c.numZerosBottom, c.numTotalCarriers, c.dcSubcarrier);
+    
+    plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After SFO');
 end
 
-plotChannelCoeffFrame(config, ofdmSymbolsRxCorrected, dataFrame, 'After SFO');
 
 % Split symbols sent on outer-subcarriers and inner-subcarriers to show the
 % effect of SFO on outer-subcarriers. Enabled only when no guard bands are
@@ -169,6 +177,7 @@ plot(infoSymbolOuterSCCorrectedEst, 'r.');
 hold on;
 grid on;
 plot(infoSymbolInnerSCCorrectedEst, 'b.');
+plot(ofdmSymbolsRxCorrected(lowestChannelsCoeffsIndices,:),'g.');
 plot(qammap(c.M), 'gx');
 xlabel('In-phase');
 ylabel('Quadrature');
