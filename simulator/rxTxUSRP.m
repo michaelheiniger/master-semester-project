@@ -1,15 +1,18 @@
-function [signalRx,Fs] = rxTxUSRP(signalTx, mode)
+function [signalRx,Fs] = rxTxUSRP(signalTx, mode, config)
 %RXTXUSRP Summary of this function goes here
 %   Detailed explanation goes here
 
 serialNumberRx = '30C51BC';
 serialNumberTx = '30C5426';
 
+Ts = 1/config.Fs;
+
 boardPlatform = 'B200';
-fc = 2.4e9; % carrier frequency
+fc = 2.49e9; % carrier frequency
+% fc = 100e6; % carrier frequency
 LOO = 1e3; % local oscillator offset
-clockRateTx = 5e6; % main clock (Sampling rate of the digital signal sent to ADC) (5e6 to 56e6)
 interpolationTx = 10; % Interpolation factor from host signal to USRP signal (e.g Fs = 0.5 Mhz => ClockRate = 5 Mhz)
+clockRateTx = interpolationTx/Ts; % main clock (Sampling rate of the digital signal sent to ADC) (5e6 to 56e6)
 clockRateRx = clockRateTx; % on the same radio we need to use the same
 decimationRx = interpolationTx; % to get to 1MHz
 clockInputSource = 'Internal';
@@ -22,7 +25,7 @@ samplesPerFrame = 0.5e5;
 
 burstMode = false;
 
-Ts = interpolationTx/clockRateTx; % [s] sampling time
+% Ts = interpolationTx/clockRateTx; % [s] sampling time
 Fs = 1/Ts;
 
 % Pad signal with zeros
@@ -86,7 +89,19 @@ end
 
 disp('Transmit and/or Receive ...');
 switch mode
-    case {'twoBoardsRxTx','loopback'}
+    case 'twoBoardsRxTx'
+        l = 1;
+        while l <= noFrames
+            [dataRxUSRP, len, ~] = rx();
+            
+            if len > 0
+                signalRx(1+(l-1)*samplesPerFrame:l*samplesPerFrame) = dataRxUSRP.';
+                tx(signalTx(1+(l-1)*samplesPerFrame:l*samplesPerFrame).');
+                l = l+1;
+            end
+        end
+        
+    case 'loopback' % also for 'twoBoardsRxTx'
         l = 1;
         while l <= noFrames
             [dataRxUSRP, len, ~] = rx();
