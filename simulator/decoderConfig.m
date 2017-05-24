@@ -11,7 +11,7 @@ end
 % Timing offset
 % add error to timing estimate, in number of samples. 0 means that the
 % estimate is untouched
-decoder.timingOffset = 0
+decoder.timingOffset = 0;
 
 % 1 if timing offset should be corrected
 decoder.timingOffsetCorrection = 0;
@@ -19,8 +19,11 @@ decoder.timingOffsetCorrection = 0;
 % 1 if carrier frequency offset should be corrected
 decoder.cfoCorrection = 1;
 
+% 1 if residual CFO should be tracked and corrected
+decoder.cfoTracking = 1;
+
 % 1 if sampling frequency offset should be corrected
-decoder.sfoCorrection = 1;
+decoder.sfoCorrection = 0;
 
 % 1 if channel equalization should be performed
 decoder.equalization = 1;
