@@ -91,7 +91,10 @@ quantileError = quantile(totalErrors, [threshold, 1])
 fineTauQuantile = fineTimingWindow(posQuantile);
 
 figure;
-stem(fineTimingWindow, abs(totalErrors))
+hax=axes;
+stem(fineTimingWindow, abs(totalErrors),'.')
+HL1 = quantileError(1);
+line(get(hax,'XLim'),[HL1 HL1], 'Color', [1 0 0]);
 title('Total error on LTS vs offset');
 
     
