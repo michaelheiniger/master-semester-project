@@ -22,7 +22,8 @@ fprintf('Instance started on %s \n\n',datestr(now))
 % USRP boards are always used in half-duplex mode
 
 % mode = 'twoBoardsRxTx';
-mode = 'simulation';
+% mode = 'simulation';
+mode = 'oneBoardTx';
 
 % Decoder parameters
 decoderConfig()
@@ -68,6 +69,20 @@ fourStsTime = ifft(fftshift(stsFreq), config.NFFT_TS);
 stsTime = sqrt(13/6)*fourStsTime(1:16); % cancel normalizations
 ltsTime = ifft(fftshift(ltsFreq), config.NFFT_TS);
 
+% Pilot OFDM symbols (excluding pilot subcarriers) for channel estimation
+% Randomization is needed to avoid high PAPR
+% TODO: Use pseudorandomization to be able to use with USRPs on separate
+% hosts !
+% Note: To estimate the noise variance for MMSE equalization, it is needed
+% that re(X) = im(X) where X is one symbol of the pilot OFDM symbol.
+pilotOfdmSymbol = config.map(randi([0,1], config.numDataCarriers, 1)+2).';
+% load('pilotOfdmSymbol.mat');
+
+% Pilot subcarriers to correct for Sampling Frequency Offset (SFO) 
+% Note: the first symbol correspond to the pilot OFDM symbol
+pilotsSc1 = [config.map(1), repmat(config.map(config.M), 1, config.numOFDMSymbolsPerFrame-1)];
+pilotsSc2 = [config.map(4), repmat(config.map(config.M), 1, config.numOFDMSymbolsPerFrame-1)];
+
 if strcmp(mode, 'simulation') || strcmp(mode, 'oneBoardTx') || strcmp(mode, 'loopback') || strcmp(mode, 'twoBoardsRxTx')
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Information symbols Generation
@@ -81,25 +96,13 @@ if strcmp(mode, 'simulation') || strcmp(mode, 'oneBoardTx') || strcmp(mode, 'loo
     % Get data symbols from constellation
     dataSymbols = modulator(dataSymbolsDec, config.map);
 
-    % Pilot OFDM symbols (excluding pilot subcarriers) for channel estimation
-    % Randomization is needed to avoid high PAPR
-    % TODO: Use pseudorandomization to be able to use with USRPs on separate
-    % hosts !
-    % Note: To estimate the noise variance for MMSE equalization, it is needed
-    % that re(X) = im(X) where X is one symbol of the pilot OFDM symbol.
-    pilotOfdmSymbol = config.map(randi([0,1], config.numDataCarriers, 1)+2).'
-    % load('pilotOfdmSymbol.mat');
-
-    % Pilot subcarriers to correct for Sampling Frequency Offset (SFO) 
-    % Note: the first symbol correspond to the pilot OFDM symbol
-    pilotsSc1 = [config.map(1), repmat(config.map(config.M), 1, config.numOFDMSymbolsPerFrame-1)];
-    pilotsSc2 = [config.map(4), repmat(config.map(config.M), 1, config.numOFDMSymbolsPerFrame-1)];
-
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Transmitter
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Build the OFDM frame (preamble, pilots, data)
     [signalTx, dataFrame] = OFDMTransmitter(config, mode, dataSymbols, stsTime, ltsTime, pilotOfdmSymbol, pilotsSc1, pilotsSc2,ca);
+else
+    signalTx = [];
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Channel
