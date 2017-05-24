@@ -122,8 +122,6 @@ plot(abs(frame));
 title('Received frame');
 
 if decoder.cfoCorrection
-    [intialPhaseEst, frequencyOffsetEst] = frequencyOffsetEstimation(frame, stsTime, ltsTime, Fs);
-    
     totalCFO = coarseCFO(position) + fineCFO(position);
     
     % Correct frequency offset
