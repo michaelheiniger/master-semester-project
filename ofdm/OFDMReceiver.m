@@ -1,4 +1,4 @@
-function [dataSymbolsRx] = OFDMReceiver(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilots1, pilots2, dataFrame, ca)
+function [dataSymbolsRx, numUsefulBitsRx] = OFDMReceiver(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilots1, pilots2, dataFrame, ca)
 %OFDMRECEIVER Summary of this function goes here
 % Receiver is configured by struct receiverConfig
 % Parameters of the receiver are:
@@ -24,6 +24,10 @@ preambleLength = length(ca)+10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTim
 dataRxCorrected = frameRx(1+preambleLength:end);
 
 signalFieldOfdmSymbolRx = frameRx(1+preambleLength-sc.signalFieldLength:preambleLength);
+
+% Signal field bits extraction
+signalFieldBits = demodulateSignalField(signalFieldOfdmSymbolRx, sc);
+numUsefulBitsRx = bi2de(signalFieldBits(1:sc.numBitsForPayloadSize).');
 
 % Reshape into a matrix and remove cyclic prefix
 dataRxIfftWithCp = reshape(dataRxCorrected, sc.CPLength+sc.numTotalCarriers, sc.numOFDMSymbolsPerFrame);
