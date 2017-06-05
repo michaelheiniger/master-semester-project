@@ -1,4 +1,4 @@
-function [signalRx] = simulatorOFDM(signalTx, Fs)
+function [signalRx] = simulatorOFDM(signalTx, Fs, SNR)
 %SIMULATOROFDM Allows to simulate different channels and impairments due to
 % device imperfections.
 % Takes as input:
@@ -18,8 +18,9 @@ Ts = 1/Fs;
 channelScaling = 1;  % {Natural numbers}0
 % AWGN
 awgnEnabled = 1; % {0,1}
-SNR = 25; % dB
-disp(['SNR: ', num2str(SNR)]);
+if not(exist('SNR', 'var'))
+    SNR = 25; % dB
+end
 
 % Multipath channel simulation
 multipathEnabled = 1; % {0,1}
@@ -65,6 +66,7 @@ signalRx = channelScaling*signalRx;
 
 %Add Complex White Gaussian Noise
 if awgnEnabled
+    disp(['SNR: ', num2str(SNR)]);
     signalRx = awgn(complex(signalRx), SNR, 'measured');
 end
 
