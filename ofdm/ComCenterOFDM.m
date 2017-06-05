@@ -56,6 +56,7 @@ sc.numUsedCarriers = sc.numTotalCarriers - sc.numZerosTop - sc.numZerosBottom - 
 sc.numDataCarriers = sc.numUsedCarriers - sc.numPilots; % number of subcarriers used to carry information symbols (i.e. not pilots)
 sc.signalFieldLength = 64;
 sc.signalFieldCpLength = 16;
+sc.numBitsForPayloadSize = 16; % first bits of signal field
 sc % Display config
 
 % The noise variance is estimated using the guard bands so there must be at
@@ -165,8 +166,12 @@ for run = 1:numRuns
         % Number of bits as a function of the number of symbols to send
         numBits = numInfoSymbols * log2(sc.M);
         
-        % Fetch bits from source
-        bitsToSend = getBitsToSend(bitsSource, numBits, dsc);
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+        % Configuration of data source
+
+        bitsToSend = getRandomBits(numBits);
+
+        bitsToSend = bitsToSend(:);
         
         % Transform bits into information symbols from M-QAM constellation
         decInfoSymbols = bitsToDecSymbols(bitsToSend, sc.M);
@@ -235,15 +240,15 @@ for run = 1:numRuns
                 end
                 
                 % Receiver 1
-                infoSymbolsRx1 = OFDMReceiver(sc, rc1, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+                [infoSymbolsRx1, ~] = OFDMReceiver(sc, rc1, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
                 bitsRx1 = getBitsFromReceivedSymbols(infoSymbolsRx1, sc.map, sc.M);
                 
                 % Receiver 2
-                infoSymbolsRx2 = OFDMReceiver(sc, rc2, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+                [infoSymbolsRx2, ~] = OFDMReceiver(sc, rc2, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
                 bitsRx2 = getBitsFromReceivedSymbols(infoSymbolsRx2, sc.map, sc.M);
                 
                 % Receiver 3
-                %     infoSymbolsRx3 = OFDMReceiver(sc, rc3, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+                %     [infoSymbolsRx3, ~] = OFDMReceiver(sc, rc3, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
                 %     bitsRx3 = getBitsFromReceivedSymbols(infoSymbolsRx3, sc.map, sc.M);
                 
                 if not(strcmp(mode, 'oneBoardRx'))
@@ -257,14 +262,6 @@ for run = 1:numRuns
                     receiver2Results(run, snrIndex, snrRun) = SER2;
                     
                 end
-                
-                if strcmp(bitsSource, 'textFile')
-                    disp('Text decoded by receiver 1');
-                    %         textRx1 = bitsToText(bitsRx1)
-                    
-                    %         disp('Text decoded by receiver 2');
-                    %         textRx2 = bitsToText(bitsRx2)
-                end
             end
             if numRunsPerSnr > 1
                 close all;
@@ -275,7 +272,7 @@ for run = 1:numRuns
 end
 %%
 % Plot results
-var(mean(receiver1Results,3))
+% var(mean(receiver1Results,3))
 % var(receiver1Results(:,:,6))
 
 meanSerSnr1 = mean(mean(receiver1Results,3),1);
