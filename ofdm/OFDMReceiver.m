@@ -169,6 +169,7 @@ end
 % Plot symbols on M-QAM constellation: symbols are corrected for CFO, SFO 
 % and equalized. Pilot OFDM symbol and symbols sent over pilot subcarriers 
 % are included.
+
 figure;
 plot(infoSymbolOuterSCCorrectedEst, 'r.');
 hold on;
@@ -178,9 +179,9 @@ plot(ofdmSymbolsRxCorrected(lowestChannelsCoeffsIndices,:),'m.');
 plot(qammap(sc.M), 'gx');
 xlabel('In-phase');
 ylabel('Quadrature');
-% title([num2str(c.M) '-QAM constellation at receiver (SFO corrected and equalized)']);
 title([num2str(sc.M) '-QAM constellation at receiver']);
-% axis([-1.5,1.5,-1.5,1.5]);
+axis([-1.5,1.5,-1.5,1.5]);
+
 % legend(['Outer SC symbols (2*' num2str(outerSubcarrierRatio*100/2) '%)'], ['Inner SC symbols (' num2str(100*(1-outerSubcarrierRatio)) '%)'], 'QAM points');
 
 % Remove pilots (i.e. remove first and last subcarriers) 
