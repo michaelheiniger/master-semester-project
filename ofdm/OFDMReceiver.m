@@ -108,6 +108,11 @@ if rc.equalization
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After equalization, before CFO tracking');
 end
 
+% Complete the pilots with the OFDM pilot symbol for CFO trakcing and SFO
+% correction
+pilots1 = [pilotOfdmSymbol(1), pilots1];
+pilots2 = [pilotOfdmSymbol(end), pilots2];
+
 if rc.cfoTracking
     % Track and remove the residual drifting CFO present in all OFDM symbols due to
     % imperfect estimate of the CFO
@@ -118,7 +123,7 @@ end
 
 if rc.sfoCorrection
     % Sampling Frequency Offset correction
-    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, pilots1, pilots2, sc.numZerosTop, sc.numZerosBottom, sc.numTotalCarriers, sc.zeroFreqSubcarrier);
+    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, sc, pilots1, pilots2);
     
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After SFO');
 end
