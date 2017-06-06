@@ -19,6 +19,8 @@ Ts = 1/sc.Fs;
 switch rc.timingAndFrequencyOffsetMethod
     case 'stsLtsOfdmDemod'
         [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation1(sc, signal, stsTime, ltsTime, ca);
+    case 'stsLtsTimeDomain'
+        [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation3(sc, signal, stsTime, ltsTime, ca);
     case 'caTimeDomain'
         [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation2(sc, rc, transpose(signal), ca);
     case 'ideal'
