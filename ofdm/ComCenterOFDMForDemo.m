@@ -74,7 +74,7 @@ end
 rc1.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
 rc1.cfoCorrection = 1; % 1 if CFO should be corrected
 rc1.cfoTracking = 1; % 1 if residual CFO should be tracked
-rc1.sfoCorrection = 0; % 1 if SFO should be corrected
+rc1.sfoCorrection = 1; % 1 if SFO should be corrected
 rc1.equalization = 1; % 1 if channel equalization should be performed
 
 rc1.timingOffset = 0; % add offset to timing estimate, in number of samples.
@@ -134,7 +134,7 @@ if isInstanceTransmitter(mode)
     infoSymbols = modulator(decInfoSymbols, qammap(sc.M));
     
     % Signal field uses BPSK (+/-1)
-    numBitsToSendBin = de2bi(numBitsToSend, sc.numBitsForPayloadSize).'
+    numBitsToSendBin = de2bi(numBitsToSend, sc.numBitsForPayloadSize).';
     signalSymbols = [numBitsToSendBin;...
         randi([0,1], sc.numDataCarriers-sc.numBitsForPayloadSize, 1)]*(-2)+1;
 
