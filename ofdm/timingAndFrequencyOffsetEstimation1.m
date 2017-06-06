@@ -19,7 +19,7 @@ tenStsTime = repmat(stsTime,10,1);
 [R, ~] = xcorr(signal, repmat(stsTime,10,1));
 R = R(length(signal):end);
 R = R / sum(abs(tenStsTime).^2); % Normalization
-[~, coarseTau] = max(abs(R))
+[~, coarseTau] = max(abs(R));
 
 plotSignalMagnitude(R, 'Offset [samples]', 'Cross-correlation (signal, 10 STS)');
 
@@ -100,7 +100,7 @@ end
 threshold = 0.25;
 quantileError = quantile(allMSEs, [threshold, 1])
 % Take the sample which has an error below the treshold and which has the highest index 
-posQuantile = find(allMSEs <= quantileError(1), 1, 'last')
+posQuantile = find(allMSEs <= quantileError(1), 1, 'last');
 fineTauQuantile = fineTimingWindow(posQuantile)
 
 figure;
@@ -112,35 +112,32 @@ title('Total error on LTS vs offset');
 
 [minMSE, posMinMSE] = min(allMSEs);
 [minMAE, posMinMAE] = min(allMAEs);
-disp(['Minimum MSE: ', num2str(minMSE)]);
-disp(['Minimum MAE: ', num2str(minMAE)]);
+% disp(['Minimum MSE: ', num2str(minMSE)]);
+% disp(['Minimum MAE: ', num2str(minMAE)]);
 
-fineTauMinMSE = fineTimingWindow(posMinMSE);
+fineTauMinMSE = fineTimingWindow(posMinMSE)
 fineTauMinMAE = fineTimingWindow(posMinMAE);
 fineTau = fineTauQuantile;
 % fineTau = fineTimingWindow(posMinMSE)
 
-position = posQuantile
+position = posQuantile;
+disp(['Coarse CFO: ', num2str(coarseCFO(position))]);
+disp(['Fine CFO: ', num2str(fineCFO(position))]);
 
 % Begining of the frame: take into account the CA code
 frameBeginning = fineTau-length(ca);
-disp(['Frame beginning est:', num2str(frameBeginning)]);
 
 % Timing estimates is the estimate of the first sample of the frame
 timingEst = frameBeginning;
 
 % Total frequency offset is the sum of the coarse and fine estimations
 frequencyOffsetEst = coarseCFO(position) + fineCFO(position);
-disp(['Coarse CFO: ', num2str(coarseCFO(position))]);
-disp(['Fine CFO: ', num2str(fineCFO(position))]);
-disp(['Total CFO: ', num2str(frequencyOffsetEst)]);
 
 % Initial phase offset wrt the beginning of the frame
 % Note: Initial phase offset is computed wrt LTS1 which is preceded by
 % CA, 10*STSs and the CP of LTS1 and LTS2
 offsetToFrameBeginning = length(ca)+length(tenStsTime)+sc.twoLtsCpLength;
 initialPhaseEst = angle(exp(1j*initialPhase(position)-1j*(2*pi*frequencyOffsetEst*offsetToFrameBeginning*Ts)));
-disp(['Initial phase:', num2str(initialPhaseEst)]);
 
 end
 

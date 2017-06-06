@@ -21,9 +21,17 @@ switch rc.timingAndFrequencyOffsetMethod
         [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation1(sc, signal, stsTime, ltsTime, ca);
     case 'caTimeDomain'
         [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation2(sc, rc, transpose(signal), ca);
+    case 'ideal'
+        timingEst = rc.manualTiming;
+        frequencyOffsetEst = rc.manualCFO;
+        initialPhaseEst = angle(exp(1j*2*pi*frequencyOffsetEst*(timingEst-1)*Ts));
     otherwise
         error('Timing and frequency offset correction method unknown.');
 end
+
+disp(['Timing: ', num2str(timingEst)]);
+disp(['Total CFO: ', num2str(frequencyOffsetEst)]);
+disp(['Initial phase: ', num2str(initialPhaseEst)]);
 
 % Allows to introduce manually a timing offset (see Receiver configuration)
 timingEst = timingEst + rc.timingOffset;
@@ -32,11 +40,7 @@ lengthStsTime = length(stsTime);
 lengthLtsTime = length(ltsTime);
 
 % Frame extraction 
-if rc.isTimingManuallySet
-    beginningFrame = rc.manualTiming;
-else
-    beginningFrame = timingEst;
-end
+beginningFrame = timingEst;
 disp(['Frame beginning (effectively used) :', num2str(beginningFrame)]);
 signalCut = signal(beginningFrame:end);
 if rc.upsample
