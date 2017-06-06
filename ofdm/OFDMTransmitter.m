@@ -12,20 +12,13 @@ twoLts = repmat(ltsTime, 2, 1);
 % Add cyclic prefix to the two LTS
 twoLtsWithCp = [twoLts(end-sc.twoLtsCpLength+1:end); twoLts];
 
-% Build SIGNAL OFDM symbol
-signalOfdmSymbol = [zeros(sc.numZerosTop, 1); ...
-                    signalSymbols(1:sc.numTotalCarriers/2-sc.numZerosTop); ...
-                    zeros(sc.zeroFreqSubcarrier, 1); ...
-                    signalSymbols(sc.numTotalCarriers/2-sc.numZerosTop+1:end); ...
-                    zeros(sc.numZerosBottom, 1)];
-% Apply IFFT
-signalOfdmSymbolIfft = ifft(fftshift(signalOfdmSymbol), 64);
+% OFDM data frame construction ("-2" because of pilot and signal OFDM
+% symbols)
+dataFrame = reshape(dataSymbolsTx, sc.numDataCarriers, sc.numOFDMSymbolsPerFrame-2);
 
-% Add CP
-signalOfdmSymbolIfftWithCp = [signalOfdmSymbolIfft(end-sc.signalFieldCpLength+1:end); signalOfdmSymbolIfft];
-
-% OFDM data frame construction
-dataFrame = reshape(dataSymbolsTx, sc.numDataCarriers, sc.numOFDMSymbolsPerFrame-1);
+% Add SIGNAL OFDM symbol to dataframe (it is considered as a regular OFDM
+% symbol)
+dataFrame = [signalSymbols(:), dataFrame];
 
 % Add pilot subcarriers (for post-FFT frequency offset correction due to
 % sampling frequency offset)
@@ -57,7 +50,6 @@ dataFrameIFFTWithCp = [dataFrameIFFT(end-sc.CPLength+1:end,:);...
 signalTx = [ca.';
            tenSts;...
            twoLtsWithCp;...
-           signalOfdmSymbolIfftWithCp;
            dataFrameIFFTWithCp(:)];
 
 end

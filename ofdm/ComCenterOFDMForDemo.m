@@ -42,7 +42,7 @@ sc.numTotalCarriers = 64; % Total number of subcarriers, guard bands included (F
 sc.numPilots = 2; % Number of subcarriers used as pilots (NOTE: system won't adapt to change)
 sc.CPLength = 16; % Length of the cyclic prefix of the pilot and regular OFDM symbols (16 in IEEE 802.11a)
 sc.twoLtsCpLength = 32; % Length of the cyclic prefix of the two LTSs of the preamble (32 in IEEE 802.11a)
-sc.numOFDMSymbolsPerFrame = 100; % Excluding preamble, must be >= 2
+sc.numOFDMSymbolsPerFrame = 100; % Excluding preamble, must be >= 3 (pilot OFDM symbol, signal OFDM symbol)
 sc.zeroFreqSubcarrier = 1; % 0 if used for data, 1 means that it is set to zero
 marginSubCarriers = 0.17*sc.numTotalCarriers; % Ratio of subcarriers that are considered to be at the margin of the spectrum used
 sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
@@ -52,8 +52,6 @@ sc.numZerosBottom = floor(marginSubCarriers/2); % Amount of bottom (positive fre
 sc.NFFT = sc.numTotalCarriers; % FFT size
 sc.numUsedCarriers = sc.numTotalCarriers - sc.numZerosTop - sc.numZerosBottom - sc.zeroFreqSubcarrier; % number of subcarriers used to carry symbols (information or pilot)
 sc.numDataCarriers = sc.numUsedCarriers - sc.numPilots; % number of subcarriers used to carry information symbols (i.e. not pilots)
-sc.signalFieldLength = 64;
-sc.signalFieldCpLength = 16;
 sc.numBitsForPayloadSize = 16; % first bits of signal field
 sc % Display config
 
@@ -126,7 +124,8 @@ if isInstanceTransmitter(mode)
         error('Number of OFDM symbols per frame exceeded')
     end
     
-    numBitsPadding = (sc.numOFDMSymbolsPerFrame-1)*sc.numDataCarriers*log2(sc.M)-numBitsToSend;
+    % "-2" because of pilot and signal OFDM symbols
+    numBitsPadding = (sc.numOFDMSymbolsPerFrame-2)*sc.numDataCarriers*log2(sc.M)-numBitsToSend;
         
     bitsToSendWithPadding = [bitsToSend; randi([0,1], numBitsPadding, 1)];
     
@@ -135,8 +134,9 @@ if isInstanceTransmitter(mode)
     infoSymbols = modulator(decInfoSymbols, qammap(sc.M));
     
     % Signal field uses BPSK (+/-1)
-    signalSymbols = [de2bi(numBitsToSend, sc.numBitsForPayloadSize).';...
-        randi([0,1], sc.numUsedCarriers-sc.numBitsForPayloadSize, 1)]*(-2)+1;
+    numBitsToSendBin = de2bi(numBitsToSend, sc.numBitsForPayloadSize).'
+    signalSymbols = [numBitsToSendBin;...
+        randi([0,1], sc.numDataCarriers-sc.numBitsForPayloadSize, 1)]*(-2)+1;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % OFDM transmitter

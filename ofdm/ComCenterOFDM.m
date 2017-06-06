@@ -160,8 +160,9 @@ for run = 1:numRuns
         % OFDM symbols to transmit can be chosen rather than the number of
         % bits which will be automatically adapted.
         
-        % Number of information symbols to send
-        numInfoSymbols = (sc.numOFDMSymbolsPerFrame-1)*sc.numDataCarriers;
+        % Number of information symbols to send ("-2" due to pilot
+        % and SIGNAL OFDM symbols)
+        numInfoSymbols = (sc.numOFDMSymbolsPerFrame-2)*sc.numDataCarriers;
         
         % Number of bits as a function of the number of symbols to send
         numBits = numInfoSymbols * log2(sc.M);
@@ -178,7 +179,7 @@ for run = 1:numRuns
         infoSymbols = modulator(decInfoSymbols, qammap(sc.M));
         
         % Signal symbol uses BPSK (+/-1j)
-        signalSymbols = 0+1j*(randi([0,1], sc.numUsedCarriers, 1)*(-2)+1);
+        signalSymbols = (randi([0,1], sc.numDataCarriers, 1)*(-2)+1);
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % OFDM transmitter

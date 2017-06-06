@@ -20,14 +20,8 @@ plotSignalMagnitude(signalRx, 'Samples', 'Absolute value of received signal')
 frameRx = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, ca);
 
 % Remove preamble (1 CA, 10 STS, CP, 2 LTS, CP, Signal Field)
-preambleLength = length(ca)+10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTime)+sc.signalFieldCpLength+sc.signalFieldLength;
+preambleLength = length(ca)+10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTime);
 dataRxCorrected = frameRx(1+preambleLength:end);
-
-signalFieldOfdmSymbolRx = frameRx(1+preambleLength-sc.signalFieldLength:preambleLength);
-
-% Signal field bits extraction
-signalFieldBits = demodulateSignalField(signalFieldOfdmSymbolRx, sc);
-numUsefulBitsRx = bi2de(signalFieldBits(1:sc.numBitsForPayloadSize).');
 
 % Reshape into a matrix and remove cyclic prefix
 dataRxIfftWithCp = reshape(dataRxCorrected, sc.CPLength+sc.numTotalCarriers, sc.numOFDMSymbolsPerFrame);
@@ -129,6 +123,25 @@ if rc.sfoCorrection
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After SFO');
 end
 
+% Extract SIGNAL OFDM symbol (without pilots)
+signalFieldOfdmSymbolRx = ofdmSymbolsRxCorrected(2:end-1,2);
+
+figure;
+plot(signalFieldOfdmSymbolRx,'.');
+hold on;
+plot([-1 1], [0 0], 'gx');
+xlabel('In-phase');
+ylabel('Quadrature');
+title('BPSK SIGNAL symbols')
+
+% Remove SIGNAL OFDM symbol from receiver symbols
+ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected(:,[1,3:end]);
+
+% Signal field bits extraction
+signalFieldOfdmSymbolRx(real(signalFieldOfdmSymbolRx) >= 0) = 0;
+signalFieldOfdmSymbolRx(real(signalFieldOfdmSymbolRx) < 0) = 1;
+numUsefulBitsRxBin = signalFieldOfdmSymbolRx(1:sc.numBitsForPayloadSize);
+numUsefulBitsRx = bi2de(numUsefulBitsRxBin(:).');
 
 % Split symbols sent on outer-subcarriers and inner-subcarriers to show the
 % effect of SFO on outer-subcarriers. Enabled only when no guard bands are
