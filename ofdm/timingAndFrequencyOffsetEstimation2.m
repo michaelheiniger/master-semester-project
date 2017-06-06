@@ -55,6 +55,29 @@ end
 disp(['Tau est: ', num2str(tauEstimate)]);
 disp(['Coarse Doppler est: ', num2str(coarseDopplerEstimate)]);
 
+% Tau fine estimation
+ISILength = 30;
+results = zeros(ISILength,1);
+for i = 0:ISILength-1
+    tentativeTau = tauEstimate-i;
+    caRx = signal(tentativeTau:tentativeTau+length(ca)-1).';
+    h = channel_estimation_causal(caRx,ca);
+%     if tentativeTau == 1001
+        figure;
+        stem(real(h),'.');
+        title(['Tentative tau: ' num2str(tentativeTau)]);
+%     end
+    results(i+1) = sum(abs(real(h(1:ISILength))));
+%     results(i+1) = sum(abs(real(h(1:16))));
+end
+
+figure;
+plot(tauEstimate-(0:ISILength-1),results);
+% plot(results);
+title('abs sum of first 16 taps of h vs tentative tau');
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%% Upsampled version %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % signalUp = resample(signal, rc.USF,1);
 % caUp = upsample(ca, rc.USF);
