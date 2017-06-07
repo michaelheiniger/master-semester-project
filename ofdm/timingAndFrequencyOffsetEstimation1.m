@@ -79,7 +79,8 @@ for d = 1:length(fineTimingWindow)
     zeroSubcarriersTop = ltsFreqRxCorrected1(1:6);
     zeroSubcarriersBottom = ltsFreqRxCorrected1(end-4);
     noiseVariance = 1/sc.numTotalCarriers*var([zeroSubcarriersTop; zeroSubcarriersBottom]);
-    lambdasMMSE = channelEstimation([ltsFreqRxCorrected2(7:32);ltsFreqRxCorrected2(34:59)], [ltsFreqRxCorrected1(7:32);ltsFreqRxCorrected1(34:59)], [ltsFreq(7:32);ltsFreq(34:59)], sc.numUsedCarriers, noiseVariance);
+    numUsedSubcarriersInLts = 52;
+    lambdasMMSE = channelEstimation([ltsFreqRxCorrected2(7:32);ltsFreqRxCorrected2(34:59)], [ltsFreqRxCorrected1(7:32);ltsFreqRxCorrected1(34:59)], [ltsFreq(7:32);ltsFreq(34:59)], numUsedSubcarriersInLts, noiseVariance);
 
     % Equalization of LTS2
     ltsFreqRxCorrected2(7:32) = ltsFreqRxCorrected2(7:32) ./ lambdasMMSE(1:26);
