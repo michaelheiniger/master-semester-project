@@ -6,6 +6,7 @@ clc;
 % a = ones(400,6,23);
 % b = ones(400,6,216);
 % c = cat(3,a,b);
+snrValues = 20:55;
 load('rxPerfData/receiver1Results_batch3.mat');
 receiver1ConcatResults = receiver1Results;
 clear receiver1Results;
@@ -57,20 +58,24 @@ maxOffsetPerSNr = max(max(timingsReceiver1Concat, [],3),[],1);
 minOffsetPerSNr = min(min(timingsReceiver1Concat, [],3),[],1);
 
 %%
-clc
-size(timingsReceiver1Concat)
-% allTimingsPerSnr = reshape(transpose(reshape(timingsReceiver1Concat,25,[])),36,[]); % FAUX !!???!!!
-% allTimingsPerSnr = transpose(reshape(transpose(reshape(timingsReceiver1Concat,18,[])), 25*18,[]));
 allTimingsPerSnr = transpose(reshape(transpose(reshape(timingsReceiver1Concat, 18*36, 25)),18*25,[]));
-% size(allTimingsPerSnr)
-a = allTimingsPerSnr(1,:);
-b = a(a >=-4)
-c = b(b < 1);
-numel(c)/numel(a)
 
+% Compute timing error rate (timing is outside of {-4,0}) per SNR
+limitUp = 0; % included
+limitDown = -4; % included
+timingErrorRate = zeros(length(snrValues), 1);
+for i = 1:size(allTimingsPerSnr,1)
+    tmp = allTimingsPerSnr(i,:);
+    tmp = tmp(tmp >= limitDown);
+    tmp = tmp(tmp <= limitUp);
+    
+    timingErrorRate(i) = 1-length(tmp)/length(allTimingsPerSnr(i,:));
+end
+
+% timingErrorRate
 %%
 
-snrValues = 20:55;
+
 
 figure;
 errorbar(snrValues,meanOverDataThenSnr1,varResultsReceiver1)
