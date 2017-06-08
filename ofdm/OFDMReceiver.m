@@ -1,4 +1,4 @@
-function [dataSymbolsRx, numUsefulBitsRx, timingEst] = OFDMReceiver(systemConfig, receiverConfig, signalRx, dataFrame)
+function [bitsRx, infoSymbolsRx, numUsefulBitsRx, timingEst] = OFDMReceiver(systemConfig, receiverConfig, signalRx, dataFrame)
 %OFDMRECEIVER Summary of this function goes here
 % Receiver is configured by struct receiverConfig
 % Parameters of the receiver are:
@@ -244,7 +244,10 @@ ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected(2:end-1,:);
 ofdmSymbolsRxCorrected = ofdmSymbolsRxCorrected(:,2:end);
 
 % Return vector of data symbols: demodulation is needed !
-dataSymbolsRx = ofdmSymbolsRxCorrected(:);
+infoSymbolsRx = ofdmSymbolsRxCorrected(:);
+
+% Demodulates information symbols into bits
+bitsRx = getBitsFromReceivedSymbols(infoSymbolsRx, sc.map, sc.M);
 
 end
 

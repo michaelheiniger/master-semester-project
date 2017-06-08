@@ -154,7 +154,7 @@ if isInstanceReceiver(mode)
     end
     
     % Receiver
-    [infoSymbolsRx, numUsefulBitsRx, ~] = OFDMReceiver(sc, rc, signalRx, dataFrame);
+    [bitsRx, infoSymbolsRx, numUsefulBitsRx, ~] = OFDMReceiver(sc, rc, signalRx, dataFrame);
     bitsRx = getBitsFromReceivedSymbols(infoSymbolsRx, sc.map, sc.M);
     disp(['Number of useful bits sent (extracted from SIGNAL field): ' num2str(numUsefulBitsRx)]);
     

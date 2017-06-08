@@ -191,12 +191,10 @@ for run = 1:numRuns
                 end
                 
                 % Receiver 1
-                [infoSymbolsRx1, ~, timingEst1] = OFDMReceiver(sc, rc1, signalRx, dataFrame);
-                bitsRx1 = getBitsFromReceivedSymbols(infoSymbolsRx1, sc.map, sc.M);
+                [bitsRx1, infoSymbolsRx1, ~, timingEst1] = OFDMReceiver(sc, rc1, signalRx, dataFrame);
                 
                 % Receiver 2
-                [infoSymbolsRx2, ~, ~] = OFDMReceiver(sc, rc2, signalRx, dataFrame);
-                bitsRx2 = getBitsFromReceivedSymbols(infoSymbolsRx2, sc.map, sc.M);
+                [bitsRx2, infoSymbolsRx2, ~, ~] = OFDMReceiver(sc, rc2, signalRx, dataFrame);
 
                 if not(strcmp(mode, 'oneBoardRx'))
                     
