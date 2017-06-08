@@ -1,4 +1,4 @@
-function [dataSymbolsRx, numUsefulBitsRx] = OFDMReceiver(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilots1, pilots2, dataFrame, ca)
+function [dataSymbolsRx, numUsefulBitsRx, timingEst] = OFDMReceiver(systemConfig, receiverConfig, signalRx, dataFrame)
 %OFDMRECEIVER Summary of this function goes here
 % Receiver is configured by struct receiverConfig
 % Parameters of the receiver are:
@@ -14,10 +14,41 @@ function [dataSymbolsRx, numUsefulBitsRx] = OFDMReceiver(systemConfig, receiverC
 sc = systemConfig;
 rc = receiverConfig;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Fetch training sequences
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Get C/A code 
+ca = getCA()/10; % power reduction
+
+% Get Short Training Sequence of IEEE 802.11a
+[stsTime, ~] = getSTS();
+
+% Get Long Training Sequence of IEEE 802.11a
+[ltsTime, ~] = getLTS();
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Fetch OFDM pilot symbols and pilot subcarriers
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Pilot OFDM symbols (excluding pilot subcarriers) for channel estimation
+% Randomization is needed to avoid high PAPR
+pilotOfdmSymbol = buildPilotOfdmSymbol(sc.numUsedCarriers, sc.map, sc.M);
+
+% Pilot subcarriers for CFO tracking and SFO correction
+% Note: the first OFDM symbol correspond to the pilot OFDM symbol
+pilotSubcarrier1 = repmat(pilotOfdmSymbol(1), 1, sc.numOFDMSymbolsPerFrame-1);
+pilotSubcarrier2 = repmat(pilotOfdmSymbol(end), 1, sc.numOFDMSymbolsPerFrame-1);
+
+
 plotSignalMagnitude(signalRx, 'Samples', 'Absolute value of received signal')
 
-% Timing synchronization and Frequency offset estimation
-frameRx = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, ca);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% OFDM demodulation of the received signal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Timing synchronization and Frequency offset estimation and correction
+[frameRx, timingEst] = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, ca);
 
 % Remove preamble (1 CA, 10 STS, CP, 2 LTS, CP, Signal Field)
 preambleLength = length(ca)+10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTime);
@@ -57,7 +88,7 @@ end
 lambdasMMSE = channelEstimation(ofdmSymbolsRx(:,2:end), pilotOfdmSymbolRx, pilotOfdmSymbol, sc.numUsedCarriers, noiseVariance);
 
 % Extract the most faded subcarriers indices
-lowestChannelsCoeffsIndices = extractMostFadedSubcarriersIndices(lambdasMMSE, 0.05, sc.numUsedCarriers);
+lowestChannelsCoeffsIndices = extractMostFadedSubcarriersIndices(lambdasMMSE, 0.1, sc.numUsedCarriers);
 
 % Simple channel estimation
 lambdas = pilotOfdmSymbolRx ./ pilotOfdmSymbol;
@@ -110,20 +141,20 @@ end
 
 % Complete the pilots with the OFDM pilot symbol for CFO trakcing and SFO
 % correction
-pilots1 = [pilotOfdmSymbol(1), pilots1];
-pilots2 = [pilotOfdmSymbol(end), pilots2];
+pilotSubcarrier1 = [pilotOfdmSymbol(1), pilotSubcarrier1];
+pilotSubcarrier2 = [pilotOfdmSymbol(end), pilotSubcarrier2];
 
 if rc.cfoTracking
     % Track and remove the residual drifting CFO present in all OFDM symbols due to
     % imperfect estimate of the CFO
-    ofdmSymbolsRxCorrected = carrierFrequencyOffsetTracking(ofdmSymbolsRxCorrected, pilots1, pilots2);
+    ofdmSymbolsRxCorrected = carrierFrequencyOffsetTracking(ofdmSymbolsRxCorrected, pilotSubcarrier1, pilotSubcarrier2);
     
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After CFO tracking, before SFO');
 end
 
 if rc.sfoCorrection
     % Sampling Frequency Offset correction
-    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, sc, pilots1, pilots2);
+    ofdmSymbolsRxCorrected = samplingFrequencyOffsetCorrection(ofdmSymbolsRxCorrected, sc, pilotSubcarrier1, pilotSubcarrier2);
     
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After SFO');
 end

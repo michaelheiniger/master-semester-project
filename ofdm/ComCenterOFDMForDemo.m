@@ -24,14 +24,18 @@ fprintf('Instance started on %s \n\n', datestr(now))
 % Note: USRP boards are always used in half-duplex mode except for the
 % loopback mode
 mode = 'simulation';
+% mode = 'twoBoardsRxTx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Configuration of data source
+% Configuration of data source (source of bits to send)
+% Two modes:
+% - random bits: randomly generated bits, parameter: numRandomBits
+% - textFile, bits from text file, parameter: textFilePath
 
-% bitsToSend = getRandomBits(10000);
-bitsToSend = textFileToBits('textfile.txt');
-
-bitsToSend = bitsToSend(:);
+% dataSource = 'random';
+% numRandomBits = 10000;
+dataSource = 'textFile';
+textFilePath = 'textfile.txt';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % System configuration 
@@ -42,13 +46,13 @@ sc.numTotalCarriers = 64; % Total number of subcarriers, guard bands included (F
 sc.numPilots = 2; % Number of subcarriers used as pilots (NOTE: system won't adapt to change)
 sc.CPLength = 16; % Length of the cyclic prefix of the pilot and regular OFDM symbols (16 in IEEE 802.11a)
 sc.twoLtsCpLength = 32; % Length of the cyclic prefix of the two LTSs of the preamble (32 in IEEE 802.11a)
-sc.numOFDMSymbolsPerFrame = 100; % Excluding preamble, must be >= 3 (pilot OFDM symbol, signal OFDM symbol)
+sc.numOFDMSymbolsPerFrame = 60; % Excluding preamble, must be >= 3 (pilot OFDM symbol, signal OFDM symbol)
 sc.zeroFreqSubcarrier = 1; % 0 if used for data, 1 means that it is set to zero
 marginSubCarriers = 0.17*sc.numTotalCarriers; % Ratio of subcarriers that are considered to be at the margin of the spectrum used
-sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
-sc.numZerosBottom = floor(marginSubCarriers/2); % Amount of bottom (positive freq) subcarriers used as guard bands
-% config.numZerosTop = 1; > 0 since channel estimation is done on guard bands
-% config.numZerosBottom = 1; > 0 since channel estimation is done on guard bands
+% sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
+% sc.numZerosBottom = floor(marginSubCarriers/2); % Amount of bottom (positive freq) subcarriers used as guard bands
+sc.numZerosTop = 1; %> 0 since channel estimation is done on guard bands
+sc.numZerosBottom = 1; %> 0 since channel estimation is done on guard bands
 sc.NFFT = sc.numTotalCarriers; % FFT size
 sc.numUsedCarriers = sc.numTotalCarriers - sc.numZerosTop - sc.numZerosBottom - sc.zeroFreqSubcarrier; % number of subcarriers used to carry symbols (information or pilot)
 sc.numDataCarriers = sc.numUsedCarriers - sc.numPilots; % number of subcarriers used to carry information symbols (i.e. not pilots)
@@ -70,81 +74,42 @@ end
 % - caTimeDomain: use Gold sequence C/A code as a preamble and time-domain
 %   channel estimation to compute estimates
 
-% Configuration of OFDM receiver 1
-rc1.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
-rc1.cfoCorrection = 1; % 1 if CFO should be corrected
-rc1.cfoTracking = 1; % 1 if residual CFO should be tracked
-rc1.sfoCorrection = 1; % 1 if SFO should be corrected
-rc1.equalization = 1; % 1 if channel equalization should be performed
+% Configuration of OFDM receiver
+rc.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
+% rc.timingAndFrequencyOffsetMethod = 'ideal';
+% rc.manualTiming = 1001; % Set the timing sample regardless of the actual estimate
+% rc.manualCFO = 456; % Set the timing sample regardless of the actual estimate
+rc.cfoCorrection = 1; % 1 if CFO should be corrected
+rc.cfoTracking = 1; % 1 if residual CFO should be tracked
+rc.sfoCorrection = 0; % 1 if SFO should be corrected
+rc.equalization = 1; % 1 if channel equalization should be performed
 
-rc1.timingOffset = 0; % add offset to timing estimate, in number of samples.
-rc1.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
-rc1.USF = 10;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Training sequence for preamble
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% C/A code 
-ca = getCA()/10; % power reduction
-
-% Short Training Sequence of IEEE 802.11a
-[stsTime, stsFreq] = getSTS();
-% Cancel IEEE 802.11a normalization                                                    TODO: explain why ...
-stsTime = sqrt(13/6)*stsTime;
-stsFreq = sqrt(13/6)*stsFreq;
-
-% Long Training Sequence of IEEE 802.11a
-[ltsTime, ltsFreq] = getLTS();
-
-% Pilot OFDM symbols (excluding pilot subcarriers) for channel estimation
-% Randomization is needed to avoid high PAPR
-pilotOfdmSymbol = buildPilotOfdmSymbol(sc.numUsedCarriers, sc.map, sc.M);
-
-% Pilot subcarriers for CFO tracking and SFO correction
-% Note: the first OFDM symbol correspond to the pilot OFDM symbol
-pilotSubcarrier1 = repmat(pilotOfdmSymbol(1), 1, sc.numOFDMSymbolsPerFrame-1);
-pilotSubcarrier2 = repmat(pilotOfdmSymbol(end), 1, sc.numOFDMSymbolsPerFrame-1);
+rc.timingOffset = 0; % add offset to timing estimate, in number of samples.
+rc.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
+rc.USF = 10;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Transmitter
-% Fetch the bits to send and builds the OFDM frames
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if isInstanceTransmitter(mode)
     
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % Information symbols generation
-   
-    numBitsToSend = length(bitsToSend);
-    numInfoSymbolsNeeded = ceil(numBitsToSend / log2(sc.M));
-            
-    numOFDMSymbolsNeeded = ceil(numInfoSymbolsNeeded/sc.numDataCarriers);
-    if numOFDMSymbolsNeeded > sc.numOFDMSymbolsPerFrame-1
-        error('Number of OFDM symbols per frame exceeded')
+    % Fetch the bits to send
+    if strcmp(dataSource, 'random')
+        bitsToSend = getRandomBits(numRandomBits);    
+    elseif strcmp(dataSource, 'textFile')
+        bitsToSend = textFileToBits(textFilePath);
+    else
+        error('Unknown data source');
     end
-    
-    % "-2" because of pilot and signal OFDM symbols
-    numBitsPadding = (sc.numOFDMSymbolsPerFrame-2)*sc.numDataCarriers*log2(sc.M)-numBitsToSend;
-        
-    bitsToSendWithPadding = [bitsToSend; randi([0,1], numBitsPadding, 1)];
-    
-    % Transform bits into information symbols from M-QAM constellation
-    decInfoSymbols = bitsToDecSymbols(bitsToSendWithPadding, sc.M);
-    infoSymbols = modulator(decInfoSymbols, qammap(sc.M));
-    
-    % Signal field uses BPSK (+/-1)
-    numBitsToSendBin = de2bi(numBitsToSend, sc.numBitsForPayloadSize).';
-    signalSymbols = [numBitsToSendBin;...
-        randi([0,1], sc.numDataCarriers-sc.numBitsForPayloadSize, 1)]*(-2)+1;
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % OFDM transmitter
-    % Build the OFDM frames and serialize them into signalTx
+    % Build the OFDM frame and serialize it into signalTx
     % dataFrame is the frame containing the subcarriers used to carry
     % symbols (information or pilot) and is returned only for comparison
     % with received version (see OFDMReceiver)
-    [signalTx, dataFrame] = OFDMTransmitter(sc, infoSymbols, stsTime, ltsTime, signalSymbols, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, ca);
+    [signalTx, dataFrame, bitsToSendWithPadding, infoSymbols] = OFDMTransmitter(bitsToSend, sc);
 else
     % If the current MATLAB instance if NOT a transmitter, the signal to
     % transmit is empty (necessary for USRP code)
@@ -189,12 +154,13 @@ if isInstanceReceiver(mode)
     end
     
     % Receiver
-    [infoSymbolsRx, numUsefulBitsRx] = OFDMReceiver(sc, rc1, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+    [infoSymbolsRx, numUsefulBitsRx, ~] = OFDMReceiver(sc, rc, signalRx, dataFrame);
     bitsRx = getBitsFromReceivedSymbols(infoSymbolsRx, sc.map, sc.M);
-   numUsefulBitsRx
+    disp(['Number of useful bits sent (extracted from SIGNAL field): ' num2str(numUsefulBitsRx)]);
+    
     % Remove paddind bits
     usefulBits = bitsRx(1:numUsefulBitsRx);
-        
+    
     if not(strcmp(mode, 'oneBoardRx'))
         % Compute Bit and Symbol Error Rates of all receivers
         [BER, SER] = symbolsAndBitsStats(infoSymbols, infoSymbolsRx, bitsToSendWithPadding, bitsRx, sc.map)

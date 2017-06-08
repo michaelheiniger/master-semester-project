@@ -26,16 +26,6 @@ fprintf('Instance started on %s \n\n', datestr(now))
 mode = 'simulation';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Configuration of data source
-% Source of the bits to be transmitted, can be:
-% - 'random': randomly chosen bits
-% - 'textFile': bits come from a text file
-% bitsSource = 'textFile';
-bitsSource = 'random';
-% Path of the source text file
-dsc.filePath = 'textfile.txt';
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % System configuration 
 sc.Fs = 0.5e6; % [Hz], sampling frequency
 sc.M = 4; % Size of M-QAM constellation
@@ -44,7 +34,7 @@ sc.numTotalCarriers = 64; % Total number of subcarriers, guard bands included (F
 sc.numPilots = 2; % Number of subcarriers used as pilots (NOTE: system won't adapt to change)
 sc.CPLength = 16; % Length of the cyclic prefix of the pilot and regular OFDM symbols (16 in IEEE 802.11a)
 sc.twoLtsCpLength = 32; % Length of the cyclic prefix of the two LTSs of the preamble (32 in IEEE 802.11a)
-sc.numOFDMSymbolsPerFrame = 100; % Excluding preamble, must be >= 2
+sc.numOFDMSymbolsPerFrame = 200; % Excluding preamble, must be >= 2
 sc.zeroFreqSubcarrier = 1; % 0 if used for data, 1 means that it is set to zero
 marginSubCarriers = 0.17*sc.numTotalCarriers; % Ratio of subcarriers that are considered to be at the margin of the spectrum used
 sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
@@ -75,11 +65,11 @@ end
 %   channel estimation to compute estimates
 
 % Configuration of OFDM receiver 1
-% rc1.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
-rc1.timingAndFrequencyOffsetMethod = 'caTimeDomain';
+rc1.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
+% rc1.timingAndFrequencyOffsetMethod = 'caTimeDomain';
 rc1.cfoCorrection = 1; % 1 if CFO should be corrected
 rc1.cfoTracking = 1; % 1 if residual CFO should be tracked
-rc1.sfoCorrection = 0; % 1 if SFO should be corrected
+rc1.sfoCorrection = 1; % 1 if SFO should be corrected
 rc1.equalization = 1; % 1 if channel equalization should be performed
 
 rc1.timingOffset = 0; % add offset to timing estimate, in number of samples.
@@ -99,18 +89,6 @@ rc2.timingOffset = 0; % add offset to timing estimate, in number of samples.
 rc2.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
 rc2.USF = 10;
 
-% Configuration of OFDM receiver 3
-% rc3.timingAndFrequencyOffsetMethod = 'caTimeDomain';
-% rc3.timingOffset = 0; % add offset to timing estimate, in number of samples.
-% rc3.manualTiming = 1001; % Set the timing sample regardless of the actual estimate
-% rc3.manualCFO = 456; % Set the timing sample regardless of the actual estimate
-% rc3.cfoCorrection = 1; % 1 if CFO should be corrected
-% rc3.cfoTracking = 1; % 1 if residual CFO should be tracked
-% rc3.sfoCorrection = 0; % 1 if SFO should be corrected
-% rc3.equalization = 1; % 1 if channel equalization should be performed
-% rc3.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
-% rc3.USF = 10;
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Training sequence for preamble
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -120,9 +98,6 @@ ca = getCA()/10; % power reduction
 
 % Short Training Sequence of IEEE 802.11a
 [stsTime, stsFreq] = getSTS();
-% Cancel IEEE 802.11a normalization                                                    TODO: explain why ...
-stsTime = sqrt(13/6)*stsTime;
-stsFreq = sqrt(13/6)*stsFreq;
 
 % Long Training Sequence of IEEE 802.11a
 [ltsTime, ltsFreq] = getLTS();
@@ -137,12 +112,13 @@ pilotSubcarrier1 = repmat(pilotOfdmSymbol(1), 1, sc.numOFDMSymbolsPerFrame-1);
 pilotSubcarrier2 = repmat(pilotOfdmSymbol(end), 1, sc.numOFDMSymbolsPerFrame-1);
 
 numRuns = 1; % Different random data from one run to the other
-numRunsPerSnr = 50; % Different noise and channel from one run to the other
-snrValues = 20:5:40; % Different SNR values
+numRunsPerSnr = 25; % Different noise and channel from one run to the other
+snrValues = 20:1:55; % Different SNR values
 % numRuns = 1; % Different random data from one run to the other
 % numRunsPerSnr = 1; % Different noise and channel from one run to the other
 % snrValues = 20; % Different SNR values
 receiver1Results = zeros(numRuns, length(snrValues), numRunsPerSnr);
+receiver1Timings = zeros(numRuns, length(snrValues), numRunsPerSnr);
 receiver2Results = zeros(numRuns, length(snrValues), numRunsPerSnr);
 countRuns = 0;
 for run = 1:numRuns
@@ -155,39 +131,13 @@ for run = 1:numRuns
     if isInstanceTransmitter(mode)
         
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Information symbols generation
-        % For convenience since it is a setup for experiments, the number of
-        % OFDM symbols to transmit can be chosen rather than the number of
-        % bits which will be automatically adapted.
-        
-        % Number of information symbols to send ("-2" due to pilot
-        % and SIGNAL OFDM symbols)
-        numInfoSymbols = (sc.numOFDMSymbolsPerFrame-2)*sc.numDataCarriers;
-        
-        % Number of bits as a function of the number of symbols to send
-        numBits = numInfoSymbols * log2(sc.M);
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-        % Configuration of data source
-
-        bitsToSend = getRandomBits(numBits);
-
-        bitsToSend = bitsToSend(:);
-        
-        % Transform bits into information symbols from M-QAM constellation
-        decInfoSymbols = bitsToDecSymbols(bitsToSend, sc.M);
-        infoSymbols = modulator(decInfoSymbols, qammap(sc.M));
-        
-        % Signal symbol uses BPSK (+/-1j)
-        signalSymbols = (randi([0,1], sc.numDataCarriers, 1)*(-2)+1);
-        
-        %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         % OFDM transmitter
         % Build the OFDM frames and serialize them into signalTx
         % dataFrame is the frame containing the subcarriers used to carry
         % symbols (information or pilot) and is returned only for comparison
         % with received version (see OFDMReceiver)
-        [signalTx, dataFrame] = OFDMTransmitter(sc, infoSymbols, stsTime, ltsTime, signalSymbols, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, ca);
+        bitsToSend = [];
+        [signalTx, dataFrame, bitsToSendWithPadding, infoSymbols] = OFDMTransmitter(bitsToSend, sc);
         
         if strcmp(mode, 'simulation')
             % Add garbage before and after OFDM frame and repeat
@@ -241,25 +191,25 @@ for run = 1:numRuns
                 end
                 
                 % Receiver 1
-                [infoSymbolsRx1, ~] = OFDMReceiver(sc, rc1, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+                [infoSymbolsRx1, ~, timingEst1] = OFDMReceiver(sc, rc1, signalRx, dataFrame);
                 bitsRx1 = getBitsFromReceivedSymbols(infoSymbolsRx1, sc.map, sc.M);
                 
                 % Receiver 2
-                [infoSymbolsRx2, ~] = OFDMReceiver(sc, rc2, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
+                [infoSymbolsRx2, ~, ~] = OFDMReceiver(sc, rc2, signalRx, dataFrame);
                 bitsRx2 = getBitsFromReceivedSymbols(infoSymbolsRx2, sc.map, sc.M);
-                
-                % Receiver 3
-                %     [infoSymbolsRx3, ~] = OFDMReceiver(sc, rc3, signalRx, stsTime, ltsTime, pilotOfdmSymbol, pilotSubcarrier1, pilotSubcarrier2, dataFrame, ca);
-                %     bitsRx3 = getBitsFromReceivedSymbols(infoSymbolsRx3, sc.map, sc.M);
-                
+
                 if not(strcmp(mode, 'oneBoardRx'))
                     
                     % Compute Bit and Symbol Error Rates of all receivers
-                    [BER1, SER1] = symbolsAndBitsStats(infoSymbols, infoSymbolsRx1, bitsToSend, bitsRx1, sc.map)
-%                     Save results for receiver1
+                    [BER1, SER1] = symbolsAndBitsStats(infoSymbols, infoSymbolsRx1, bitsToSendWithPadding, bitsRx1, sc.map)
+
+                    % Save results for receiver 1
                     receiver1Results(run, snrIndex, snrRun) = SER1;
+                    receiver1Timings(run, snrIndex, snrRun) = timingEst1;
                     
-                    [BER2, SER2] = symbolsAndBitsStats(infoSymbols, infoSymbolsRx2, bitsToSend, bitsRx2, sc.map)
+                    [BER2, SER2] = symbolsAndBitsStats(infoSymbols, infoSymbolsRx2, bitsToSendWithPadding, bitsRx2, sc.map)
+                    
+                    % Save results for receiver 2
                     receiver2Results(run, snrIndex, snrRun) = SER2;
                     
                 end
@@ -275,14 +225,38 @@ end
 % Plot results
 % var(mean(receiver1Results,3))
 % var(receiver1Results(:,:,6))
+% 
+% meanSerSnr1 = mean(mean(receiver1Results,3),1);
+% meanSerSnr2 = mean(mean(receiver2Results,3),1);
 
-meanSerSnr1 = mean(mean(receiver1Results,3),1);
-meanSerSnr2 = mean(mean(receiver2Results,3),1);
+resultFileReceiver1 = 'receiver1Results_batch3.mat';
+timingResultFileReceiver1 = 'timingResultFileReceiver1_batch3.mat';
+resultFileReceiver2 = 'receiver2Results_batch3.mat';
+
+save(resultFileReceiver1, 'receiver1Results');
+save(resultFileReceiver2, 'receiver2Results');
+save(timingResultFileReceiver1, 'receiver1Timings');
+
+
+%%
+meanOverData1 = mean(receiver1Results,1);
+meanOverData2 = mean(receiver2Results,1);
+varResultsReceiver1 = var(meanOverData1,0,3);
+varResultsReceiver2 = var(meanOverData2,0,3);
+
+meanOverDataThenSnr1 = mean(meanOverData1, 3);
+meanOverDataThenSnr2 = mean(meanOverData2, 3);
+
+
+
 %%
 figure;
-plot(snrValues, meanSerSnr1)
+% plot(snrValues, meanSerSnr1)
+% hold on;
+% plot(snrValues, meanSerSnr2)
+errorbar(snrValues,meanOverDataThenSnr1,varResultsReceiver1)
 hold on;
-plot(snrValues, meanSerSnr2)
+errorbar(snrValues,meanOverDataThenSnr2,varResultsReceiver2)
 % axis([15,55]);
 xlabel('SER');
 ylabel('SNR [dB]');
