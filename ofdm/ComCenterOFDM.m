@@ -69,7 +69,7 @@ rc1.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
 % rc1.timingAndFrequencyOffsetMethod = 'caTimeDomain';
 rc1.cfoCorrection = 1; % 1 if CFO should be corrected
 rc1.cfoTracking = 1; % 1 if residual CFO should be tracked
-rc1.sfoCorrection = 1; % 1 if SFO should be corrected
+rc1.sfoCorrection = 0; % 1 if SFO should be corrected
 rc1.equalization = 1; % 1 if channel equalization should be performed
 
 rc1.timingOffset = 0; % add offset to timing estimate, in number of samples.
@@ -88,28 +88,6 @@ rc2.equalization = 1; % 1 if channel equalization should be performed
 rc2.timingOffset = 0; % add offset to timing estimate, in number of samples.
 rc2.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
 rc2.USF = 10;
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Training sequence for preamble
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% C/A code 
-ca = getCA()/10; % power reduction
-
-% Short Training Sequence of IEEE 802.11a
-[stsTime, stsFreq] = getSTS();
-
-% Long Training Sequence of IEEE 802.11a
-[ltsTime, ltsFreq] = getLTS();
-
-% Pilot OFDM symbols (excluding pilot subcarriers) for channel estimation
-% Randomization is needed to avoid high PAPR
-pilotOfdmSymbol = buildPilotOfdmSymbol(sc.numUsedCarriers, sc.map, sc.M);
-
-% Pilot subcarriers for CFO tracking and SFO correction
-% Note: the first OFDM symbol correspond to the pilot OFDM symbol
-pilotSubcarrier1 = repmat(pilotOfdmSymbol(1), 1, sc.numOFDMSymbolsPerFrame-1);
-pilotSubcarrier2 = repmat(pilotOfdmSymbol(end), 1, sc.numOFDMSymbolsPerFrame-1);
 
 numRuns = 1; % Different random data from one run to the other
 numRunsPerSnr = 25; % Different noise and channel from one run to the other
@@ -219,14 +197,8 @@ for run = 1:numRuns
     end
     
 end
-%%
-% Plot results
-% var(mean(receiver1Results,3))
-% var(receiver1Results(:,:,6))
-% 
-% meanSerSnr1 = mean(mean(receiver1Results,3),1);
-% meanSerSnr2 = mean(mean(receiver2Results,3),1);
 
+%% Save results
 resultFileReceiver1 = 'receiver1Results_batch3.mat';
 timingResultFileReceiver1 = 'timingResultFileReceiver1_batch3.mat';
 resultFileReceiver2 = 'receiver2Results_batch3.mat';
@@ -236,22 +208,20 @@ save(resultFileReceiver2, 'receiver2Results');
 save(timingResultFileReceiver1, 'receiver1Timings');
 
 
-%%
+%% Compute mean over main runs
 meanOverData1 = mean(receiver1Results,1);
 meanOverData2 = mean(receiver2Results,1);
+
+% Compute variance over SNR runs (i.e. variance of noise and multipath)
 varResultsReceiver1 = var(meanOverData1,0,3);
 varResultsReceiver2 = var(meanOverData2,0,3);
 
+% Compute mean over SNR runs
 meanOverDataThenSnr1 = mean(meanOverData1, 3);
 meanOverDataThenSnr2 = mean(meanOverData2, 3);
 
-
-
 %%
 figure;
-% plot(snrValues, meanSerSnr1)
-% hold on;
-% plot(snrValues, meanSerSnr2)
 errorbar(snrValues,meanOverDataThenSnr1,varResultsReceiver1)
 hold on;
 errorbar(snrValues,meanOverDataThenSnr2,varResultsReceiver2)
