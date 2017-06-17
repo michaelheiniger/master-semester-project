@@ -44,9 +44,9 @@ meanOverData2 = mean(receiver2ConcatResults,1);
 meanTimingOverData1 = mean(timingsReceiver1Concat,1);
 
 % Compute variance over SNR runs (i.e. variance of noise and multipath)
-varResultsReceiver1 = var(meanOverData1,0,3);
-varResultsReceiver2 = var(meanOverData2,0,3);
-varTimingsReceiver1 = var(meanTimingOverData1,0,3);
+stdResultsReceiver1 = sqrt(var(meanOverData1,0,3));
+stdResultsReceiver2 = sqrt(var(meanOverData2,0,3));
+stdTimingsReceiver1 = sqrt(var(meanTimingOverData1,0,3));
 
 % Compute mean over SNR runs
 meanOverDataThenSnr1 = mean(meanOverData1, 3);
@@ -73,23 +73,44 @@ for i = 1:size(allTimingsPerSnr,1)
 end
 
 % timingErrorRate
+
+%%
+figure;
+plot(snrValues, timingErrorRate);
+xlabel('SNR [dB]');
+ylabel('Timing error rate');
+title('Timing error rate vs SNR');
+grid on;
 %%
 
 
 
 figure;
-errorbar(snrValues,meanOverDataThenSnr1,varResultsReceiver1)
+errorbar(snrValues,meanOverDataThenSnr1,stdResultsReceiver1)
 hold on;
-errorbar(snrValues,meanOverDataThenSnr2,varResultsReceiver2)
+errorbar(snrValues,meanOverDataThenSnr2,stdResultsReceiver2)
 % axis([15,55]);
 xlabel('SNR [dB]');
 ylabel('Mean SER');
 legend('Actual Rx','Ideal Rx');
 title('Mean SER vs SNR');
+grid on;
 
+
+%%
+figure;
+plot(snrValues, meanOverDataThenSnr1 - meanOverDataThenSnr2);
+xlabel('SNR [dB]');
+ylabel('SER difference');
+title('Difference between actual and ideal receiver SER');
+grid on;
+
+
+
+%%
 figure;
 hax=axes;
-errorbar(snrValues,meanTimingOverDataThenSnr1,varTimingsReceiver1)
+errorbar(snrValues,meanTimingOverDataThenSnr1,stdTimingsReceiver1)
 hold on;
 plot(snrValues, maxOffsetPerSNr,'.');
 plot(snrValues, minOffsetPerSNr,'.');
@@ -97,8 +118,8 @@ xlabel('SNR [dB]');
 ylabel('Timing offset error');
 HL1 = 0;
 line(get(hax,'XLim'),[HL1 HL1], 'Color', [0 1 0]);
-legend('Mean timing', 'Max timing', 'Min timing');
-title('Timing vs SNR');
+legend('Mean timing offset', 'Max timing offset', 'Min timing offset');
+title('Timing offset vs SNR');
 
 % figure;
 % plot(snrValues(1), allTimingsPerSnr(1,:),'.')
@@ -108,7 +129,7 @@ title('Timing vs SNR');
 % end
 % axis([15,50,-20,20]);
 %% 
-close all;
+
 figure;
 hax=axes;
 histogram(allTimingsPerSnr(36,:));
@@ -118,7 +139,9 @@ HL1 = -4.5;
 HL2 = 0.5;
 line([HL1 HL1], get(hax,'YLim'), 'Color', [0 1 0]);
 line([HL2 HL2], get(hax,'YLim'), 'Color', [0 1 0]);
-
+xlabel('Timing offsets (integer)')
+ylabel('Count')
+title('Distribution of timing offsets for SNR = 55')
 % histogram(timingsReceiver1Concat(4,1,:));
 
 %%
