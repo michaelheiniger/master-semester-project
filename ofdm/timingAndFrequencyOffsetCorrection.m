@@ -1,4 +1,4 @@
-function [frameCorrected] = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signal, stsTime, ltsTime, ca)
+function [frameCorrected, timingEst] = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, coarseFrame, stsTime, ltsTime)
 %TIMINGANDFREQUENCYOFFSET Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -18,11 +18,7 @@ Ts = 1/sc.Fs;
 % more details
 switch rc.timingAndFrequencyOffsetMethod
     case 'stsLtsOfdmDemod'
-        [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation1(sc, signal, stsTime, ltsTime, ca);
-    case 'stsLtsTimeDomain'
-        [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation3(sc, signal, stsTime, ltsTime, ca);
-    case 'caTimeDomain'
-        [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation2(sc, rc, transpose(signal), ca);
+        [timingEst, frequencyOffsetEst, initialPhaseEst] = timingAndFrequencyOffsetEstimation1(sc, rc, coarseFrame, stsTime, ltsTime);
     case 'ideal'
         timingEst = rc.manualTiming;
         frequencyOffsetEst = rc.manualCFO;
@@ -36,28 +32,11 @@ disp(['Total CFO: ', num2str(frequencyOffsetEst)]);
 disp(['Initial phase: ', num2str(initialPhaseEst)]);
 
 % Allows to introduce manually a timing offset (see Receiver configuration)
-timingEst = timingEst + rc.timingOffset;
-
-lengthStsTime = length(stsTime);
-lengthLtsTime = length(ltsTime);
-
-% Frame extraction 
-beginningFrame = timingEst;
+beginningFrame = timingEst + rc.timingOffset;
 disp(['Frame beginning (effectively used) :', num2str(beginningFrame)]);
-signalCut = signal(beginningFrame:end);
-if rc.upsample
-    signalCut = downsample(signalCut, rc.USF);
-end
 
-lengthFrame = length(ca)...
-                +10*lengthStsTime...
-                + sc.twoLtsCpLength...
-                + 2*lengthLtsTime...
-                + sc.numOFDMSymbolsPerFrame*(sc.CPLength+sc.numTotalCarriers);
-frame = signalCut(1:lengthFrame);
-
-plotSignalMagnitude(signal, 'Samples', 'Abs val of received signal', beginningFrame, beginningFrame+lengthFrame-1, 'green')
-plotSignalMagnitude(frame, 'Samples', 'Received frame')
+% Frame extraction
+frame = coarseFrame(beginningFrame:beginningFrame+sc.ofdmFrameLength-1);
 
 frameCorrected = frame;
 
@@ -68,18 +47,5 @@ if rc.cfoCorrection
     frameCorrected = frameCorrected .* exp(-1j*2*pi*frequencyOffsetEst*t).';
     frameCorrected = frameCorrected * exp(-1j*initialPhaseEst).';
 end
-
-if rc.upsample
-    figure;
-    hax=axes;
-    plot(abs(signal))
-    title('Abs val of upsampled received signal');
-    VL1 = fineTau;
-    line([VL1 VL1],get(hax,'YLim'), 'Color', [0 1 0]);
-    VL2 = fineTau+rc.USF*lengthFrame-1;
-    line([VL2 VL2],get(hax,'YLim'), 'Color', [0 1 0]);
-end
-
-plotSignalMagnitude(frameCorrected, 'Samples', 'Corrected received frame')
     
 end

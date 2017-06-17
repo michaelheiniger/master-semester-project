@@ -10,7 +10,13 @@ if numRows > 1 && numCols > 1
 end
 
 if not(wasRowVector)
-    vector = transpose(vector);
+    if numRows == 1
+        vector = transpose(vector);
+    end
+else
+    if numRows ~= 1
+        vector = transpose(vector);
+    end
 end
 
 end

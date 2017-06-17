@@ -25,6 +25,7 @@ fprintf('Instance started on %s \n\n', datestr(now))
 % loopback mode
 mode = 'simulation';
 % mode = 'twoBoardsRxTx';
+% mode = 'oneBoardRx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Configuration of data source (source of bits to send)
@@ -42,21 +43,29 @@ textFilePath = 'textfile.txt';
 sc.Fs = 0.5e6; % [Hz], sampling frequency
 sc.M = 4; % Size of M-QAM constellation
 sc.map = qammap(sc.M); % M-QAM constellation vector
+
 sc.numTotalCarriers = 64; % Total number of subcarriers, guard bands included (FFT size)
+sc.NFFT = sc.numTotalCarriers; % FFT size
 sc.numPilots = 2; % Number of subcarriers used as pilots (NOTE: system won't adapt to change)
 sc.CPLength = 16; % Length of the cyclic prefix of the pilot and regular OFDM symbols (16 in IEEE 802.11a)
 sc.twoLtsCpLength = 32; % Length of the cyclic prefix of the two LTSs of the preamble (32 in IEEE 802.11a)
-sc.numOFDMSymbolsPerFrame = 60; % Excluding preamble, must be >= 3 (pilot OFDM symbol, signal OFDM symbol)
-sc.zeroFreqSubcarrier = 1; % 0 if used for data, 1 means that it is set to zero
+sc.numOFDMSymbolsPerFrame = 100; % Excluding preamble, must be >= 3 (pilot OFDM symbol, signal OFDM symbol)
+
 marginSubCarriers = 0.17*sc.numTotalCarriers; % Ratio of subcarriers that are considered to be at the margin of the spectrum used
-% sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
-% sc.numZerosBottom = floor(marginSubCarriers/2); % Amount of bottom (positive freq) subcarriers used as guard bands
-sc.numZerosTop = 1; %> 0 since channel estimation is done on guard bands
-sc.numZerosBottom = 1; %> 0 since channel estimation is done on guard bands
-sc.NFFT = sc.numTotalCarriers; % FFT size
+sc.numZerosTop = ceil(marginSubCarriers/2); % Amount of top (negative freq) subcarriers used as guard bands
+sc.numZerosBottom = floor(marginSubCarriers/2); % Amount of bottom (positive freq) subcarriers used as guard bands
+% sc.numZerosTop = 1; %> 0 since channel estimation is done on guard bands
+% sc.numZerosBottom = 1; %> 0 since channel estimation is done on guard bands
+sc.zeroFreqSubcarrier = 1; % 0 if used for data, 1 means that it is set to zero
+
 sc.numUsedCarriers = sc.numTotalCarriers - sc.numZerosTop - sc.numZerosBottom - sc.zeroFreqSubcarrier; % number of subcarriers used to carry symbols (information or pilot)
 sc.numDataCarriers = sc.numUsedCarriers - sc.numPilots; % number of subcarriers used to carry information symbols (i.e. not pilots)
-sc.numBitsForPayloadSize = 16; % first bits of signal field
+sc.numBitsForPayloadSize = 16; % first bits of signal field, must be < numDataCarriers
+
+[stsTime, ~] = getSTS();
+[ltsTime, ~] = getLTS();
+sc.ofdmFrameLength = 10*length(stsTime) + sc.twoLtsCpLength + 2*length(ltsTime) + sc.numOFDMSymbolsPerFrame*(sc.CPLength+sc.NFFT);
+sc.usrpFrameLength = 5e4;
 sc % Display config
 
 % The noise variance is estimated using the guard bands so there must be at
@@ -76,17 +85,16 @@ end
 
 % Configuration of OFDM receiver
 rc.timingAndFrequencyOffsetMethod = 'stsLtsOfdmDemod';
+rc.timingThreshold = 0.3
 % rc.timingAndFrequencyOffsetMethod = 'ideal';
 % rc.manualTiming = 1001; % Set the timing sample regardless of the actual estimate
-% rc.manualCFO = 456; % Set the timing sample regardless of the actual estimate
+% rc.manualCFO = 456; % Set the CFO estimate regardless of the actual estimate
 rc.cfoCorrection = 1; % 1 if CFO should be corrected
 rc.cfoTracking = 1; % 1 if residual CFO should be tracked
 rc.sfoCorrection = 0; % 1 if SFO should be corrected
 rc.equalization = 1; % 1 if channel equalization should be performed
 
 rc.timingOffset = 0; % add offset to timing estimate, in number of samples.
-rc.upsample = 0; % 1 if the received signal should be upsample for timing synchronization
-rc.USF = 10;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Transmitter
@@ -110,6 +118,8 @@ if isInstanceTransmitter(mode)
     % symbols (information or pilot) and is returned only for comparison
     % with received version (see OFDMReceiver)
     [signalTx, dataFrame, bitsToSendWithPadding, infoSymbols] = OFDMTransmitter(bitsToSend, sc);
+    
+    plotSignalMagnitude(signalTx, 'Samples', 'Absolute value of transmitted signal')
 else
     % If the current MATLAB instance if NOT a transmitter, the signal to
     % transmit is empty (necessary for USRP code)
@@ -121,28 +131,29 @@ end
 % Simulator or USRP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-plotSignalMagnitude(signalTx, 'Samples', 'Absolute value of transmitted signal')
-
 % Transmission / Reception of the signal
 if strcmp(mode, 'simulation') % Use simulator
     
-    % Add garbage before and after OFDM frame and repeat
-    signalTx = repmat([zeros(1000,1); signalTx; zeros(1000,1)],1,1);
-    
     % Simulate the impairements of the channel on the signal
-    signalRx = simulatorOFDM(signalTx, sc.Fs);
+    [signalTxImpaired, ~] = simulatorOFDM(signalTx, sc.Fs);
+    
+    % Place the OFDM frames at the beginning of the received signal if
+    % deterministic = 1, else the place is random
+    deterministic = 1;
+    [coarseFrameRx, signalRx, frameBeginning] = usrpSimulator(signalTxImpaired, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength, deterministic);    
+    coarseFrameRx(1:32)
 else % Use USRPs
     
     % Repeat the signal
-    signalTx = repmat(signalTx,1000,1);
+    signalTx = repmat(signalTx,100,1);
         
     % Transmit / Receive with USRPs
-    signalRx = rxTxUSRP(signalTx, mode, sc.Fs);
-    
-    % Truncate beginning of the signal: contains garbage (why ?)
-    signalRx = signalRx(1e5:end);
+    [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.ofdmFrameLength, sc.CPLength);
 end
 
+plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
+
+plotSignalMagnitude(coarseFrameRx, 'samples', 'Coarse frame received');
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % OFDM Receivers
@@ -154,8 +165,8 @@ if isInstanceReceiver(mode)
     end
     
     % Receiver
-    [bitsRx, infoSymbolsRx, numUsefulBitsRx, ~] = OFDMReceiver(sc, rc, signalRx, dataFrame);
-    bitsRx = getBitsFromReceivedSymbols(infoSymbolsRx, sc.map, sc.M);
+    [bitsRx, infoSymbolsRx, numUsefulBitsRx, ~] = OFDMReceiver(sc, rc, coarseFrameRx, dataFrame);
+%     bitsRx = getBitsFromReceivedSymbols(infoSymbolsRx, sc.map, sc.M);
     disp(['Number of useful bits sent (extracted from SIGNAL field): ' num2str(numUsefulBitsRx)]);
     
     % Remove paddind bits

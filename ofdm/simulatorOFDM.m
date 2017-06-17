@@ -1,4 +1,4 @@
-function [signalRx] = simulatorOFDM(signalTx, Fs, SNR)
+function [signalRx, delayLargestAmplitude] = simulatorOFDM(signalTx, Fs, SNR)
 %SIMULATOROFDM Allows to simulate different channels and impairments due to
 % device imperfections.
 % Takes as input:
@@ -15,25 +15,25 @@ disp('Simulator parameters:');
 Ts = 1/Fs;
 
 % Simulate channel scaling
-channelScaling = 1;  % {Natural numbers}0
+channelScaling = 1;  % {real numbers}
 % AWGN
 awgnEnabled = 1; % {0,1}
 if not(exist('SNR', 'var'))
-    SNR = 25; % dB
+    SNR = 55; % dB
 end
 
 % Multipath channel simulation
-multipathEnabled = 1; % {0,1}
+multipathEnabled = 0; % {0,1}
 amplitudes = randn(1,13); % Gaussian distribution, N(0,1) 
-disp(['Amplitudes of the multipaths: ' num2str(amplitudes)]);
 delays = [0 1 2 3 4 5 6 7 8 9 10 11 12]; % in samples (must be less of equal than the cyclic prefix length to avoid ISI)
+[~, pos] = max(abs(amplitudes));
 
 % Frequency offset (aka "Doppler")
 frequencyOffset = 456; %Hz
 
 % Sampling Clock Offset (SFO)
-samplingClockOffsetEnabled = 0; % {0,1}
-epsilon = 40; % ppm e.g. 2 ppm = 2e-6
+samplingClockOffsetEnabled = 0 % {0,1}
+epsilon = 80; % ppm e.g. 2 ppm = 2e-6
 
 % Fixed Sample Offset (FSO)
 fixedSampleOffsetEnabled = 0; % {0,1}
@@ -50,9 +50,20 @@ signalRx = signalTx;
 if multipathEnabled
     % Multipath channel
     h = createMultipathChannelFilter(amplitudes, delays);
+    disp(['Amplitudes of the multipaths: ' num2str(amplitudes)]);
+    disp(['Delays of the multipaths: ' num2str(delays)]);
+    
+    % Save the delay corresponding to the strongest copy of the signal
+    % This is used for the ideal receiver
+    delayLargestAmplitude = delays(pos);
 else
     % Simple channel 
     h = 1;
+    
+    % Save the delay corresponding to the strongest copy of the signal
+    % This is used for the ideal receiver. Since there is no multipath,
+    % the delay is 0
+    delayLargestAmplitude = 0;
 end
 
 % Normalize impulse response

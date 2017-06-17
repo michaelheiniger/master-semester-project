@@ -13,6 +13,7 @@ boardPlatform = 'B200';
 fc = 2.49e9; % carrier frequency
 % fc = 100e6; % carrier frequency
 LOO = 1e3; % local oscillator offset
+% LOO = 1e3; % local oscillator offset
 interpolationTx = 10; % Interpolation factor from host signal to USRP signal (e.g Fs = 0.5 Mhz => ClockRate = 5 Mhz)
 clockRateTx = interpolationTx/Ts; % main clock (Sampling rate of the digital signal sent to ADC) (5e6 to 56e6)
 clockRateRx = clockRateTx; % on the same radio we need to use the same
@@ -20,7 +21,7 @@ decimationRx = interpolationTx; % to get to 1MHz
 clockInputSource = 'Internal';
 outputDataTypeUSRP = 'double'; % Difference between transport and output data type ?
 gainTx = 89; %60 loopback 30dB attenuator; % 89 over the air, no attenuator
-gainRx = 40;
+gainRx = 70; % Max 76dB
 
 % Number of samples per USRP frame
 samplesPerFrame = 0.5e5;
@@ -54,7 +55,7 @@ elseif strcmp(mode, 'twoBoardsRxTx')
     devicesToCheck = [serialNumberRx; serialNumberTx];
 end
 
-checkDevicesConnection(devicesToCheck);
+% checkDevicesConnection(devicesToCheck);
 
 % Instantiate transmitter object
 if strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardTx') ||  strcmp(mode, 'twoBoardsRxTx')

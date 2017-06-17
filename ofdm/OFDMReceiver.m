@@ -2,14 +2,13 @@ function [bitsRx, infoSymbolsRx, numUsefulBitsRx, timingEst] = OFDMReceiver(syst
 %OFDMRECEIVER Summary of this function goes here
 % Receiver is configured by struct receiverConfig
 % Parameters of the receiver are:
-% - timingOffset = 0; % add offset to timing estimate, in number of samples.
-% - timingOffsetCorrection = 0; % 1 if timing offset should be corrected
-% - cfoCorrection = 1; % 1 if CFO should be corrected
-% - cfoTracking = 1; % 1 if residual CFO should be tracked
-% - sfoCorrection = 0; % 1 if SFO should be corrected
-% - equalization = 1; % 1 if channel equalization should be performed
-% - upsample = 0; % 1 if the received signal should be upsample for timing synchronization
-% - USF = 10;
+% - timingOffset = 0 add offset to timing estimate, in number of samples.
+% - manualTiming Set the timing sample regardless of the actual estimate
+% - manualCFO Set the CFO estimate regardless of the actual estimate
+% - cfoCorrection = 1 if CFO should be corrected
+% - cfoTracking = 1 if residual CFO should be tracked
+% - sfoCorrection = 1 if SFO should be corrected
+% - equalization = 1 if channel equalization should be performed
 
 sc = systemConfig;
 rc = receiverConfig;
@@ -17,9 +16,6 @@ rc = receiverConfig;
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Fetch training sequences
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% Get C/A code 
-ca = getCA()/10; % power reduction
 
 % Get Short Training Sequence of IEEE 802.11a
 [stsTime, ~] = getSTS();
@@ -40,18 +36,15 @@ pilotOfdmSymbol = buildPilotOfdmSymbol(sc.numUsedCarriers, sc.map, sc.M);
 pilotSubcarrier1 = repmat(pilotOfdmSymbol(1), 1, sc.numOFDMSymbolsPerFrame-1);
 pilotSubcarrier2 = repmat(pilotOfdmSymbol(end), 1, sc.numOFDMSymbolsPerFrame-1);
 
-
-plotSignalMagnitude(signalRx, 'Samples', 'Absolute value of received signal')
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % OFDM demodulation of the received signal
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Timing synchronization and Frequency offset estimation and correction
-[frameRx, timingEst] = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signalRx, stsTime, ltsTime, ca);
+[frameRx, timingEst] = timingAndFrequencyOffsetCorrection(systemConfig, receiverConfig, signalRx, stsTime, ltsTime);
 
 % Remove preamble (1 CA, 10 STS, CP, 2 LTS, CP, Signal Field)
-preambleLength = length(ca)+10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTime);
+preambleLength = 10*length(stsTime)+sc.twoLtsCpLength+2*length(ltsTime);
 dataRxCorrected = frameRx(1+preambleLength:end);
 
 % Reshape into a matrix and remove cyclic prefix
@@ -150,6 +143,7 @@ if rc.cfoTracking
     ofdmSymbolsRxCorrected = carrierFrequencyOffsetTracking(ofdmSymbolsRxCorrected, pilotSubcarrier1, pilotSubcarrier2);
     
     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After CFO tracking, before SFO');
+%     plotChannelCoeffFrame(systemConfig, ofdmSymbolsRxCorrected, dataFrame, 'After CFO tracking');
 end
 
 if rc.sfoCorrection

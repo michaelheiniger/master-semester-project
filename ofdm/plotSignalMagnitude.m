@@ -23,11 +23,11 @@ if exist ('startVertBar', 'var') && exist ('endVertBar', 'var')
             color = [0 1 0];
         case 'blue'
             color = [0 0 1];
+    end
     VL1 = startVertBar;
     line([VL1 VL1],get(hax,'YLim'), 'Color', color);
     VL2 = endVertBar;
     line([VL2 VL2],get(hax,'YLim'), 'Color', color);
-    end
 end
 
 end

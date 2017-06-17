@@ -7,13 +7,10 @@ sc = systemConfig;
 % Preamble building
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Get C/A code 
-ca = getCA()/10; % power reduction
-
 % Get Short Training Sequence of IEEE 802.11a
 [stsTime, ~] = getSTS();
 % Cancel IEEE 802.11a normalization                                                    TODO: explain why ...
-stsTime = sqrt(13/6)*stsTime; 
+% stsTime = sqrt(13/6)*stsTime; 
 
 % Get Long Training Sequence of IEEE 802.11a
 [ltsTime, ~] = getLTS();
@@ -111,8 +108,7 @@ dataFrameIFFTWithCp = [dataFrameIFFT(end-sc.CPLength+1:end,:);...
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Parallel to serial and concatenation
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-signalTx = [ca.';
-           tenSts;...
+signalTx = [tenSts;...
            twoLtsWithCp;...
            dataFrameIFFTWithCp(:)];
 

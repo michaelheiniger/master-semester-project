@@ -37,7 +37,7 @@ ylabel('Magnitude');
 xlabel('Subcarriers index');
 % title(['Magnitude evolution over subcarriers for the whole frame ']);
 grid on;
-% axis([-35,35,0.8,1.1]);
+% axis([-35,35,0,1.5]);
 
 end
 
