@@ -140,8 +140,8 @@ if strcmp(mode, 'simulation') % Use simulator
     % Place the OFDM frames at the beginning of the received signal if
     % deterministic = 1, else the place is random
     deterministic = 1;
-    [coarseFrameRx, signalRx, frameBeginning] = usrpSimulator(signalTxImpaired, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength, deterministic);    
-    coarseFrameRx(1:32)
+    [coarseFrameRx, signalRx, frameBeginning] = usrpSimulator(signalTxImpaired, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength, deterministic);
+
 else % Use USRPs
     
     % Repeat the signal
