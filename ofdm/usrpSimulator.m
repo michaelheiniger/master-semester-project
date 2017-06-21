@@ -40,8 +40,9 @@ if deterministic
     signalRx(1:length(ofdmFramesTx)) = ofdmFramesTx;
 else
     % Add randomness in where the OFDM frames are located within USRP frames
-    frameBeginningCandidateRange = totalNumSamplesRx - length(ofdmFramesTx);
-    signalRx(frameBeginningCandidateRange:frameBeginningCandidateRange+length(ofdmFramesTx)-1) = ofdmFramesTx;
+    frameBeginningMaxValue = totalNumSamplesRx - length(ofdmFramesTx) + 1
+    frameBeginning = randi([1 frameBeginningMaxValue], 1, 1);
+    signalRx(frameBeginning:frameBeginning+length(ofdmFramesTx)-1) = ofdmFramesTx;
 end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Simulates the reception of the signal and extract the first OFDM frame
@@ -92,7 +93,7 @@ while not(frameComplete)
         end
     elseif frameFound && not(frameComplete)
 
-        coarseFrameRx = [coarseFrameRx; dataRxUSRP(1:numMissingSamples)];
+        coarseFrameRx = [coarseFrameRx; currentUsrpFrame(1:numMissingSamples)];
         frameComplete = 1;
     end
     l = l+1;
