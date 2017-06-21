@@ -53,7 +53,7 @@ for l = 1:K:length(currentChunk)
     
     [R1, ~] = xcorr(currentSamples, tenStsTime);
     R1 = R1(length(currentSamples):end);
-    [val1, pos1] = max(abs(R1))
+    [val1, pos1] = max(abs(R1));
 
     if val1 > threshold
         disp('Threshold reached')

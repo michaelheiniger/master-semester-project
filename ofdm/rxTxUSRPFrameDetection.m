@@ -1,4 +1,4 @@
-function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, Fs, samplesPerUsrpFrame, ofdmFrameLength, cpLength)
+function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, Fs, usrpFrameLength, ofdmFrameLength, cpLength)
 %RXTXUSRP Transmit and/or receive samples using USRP board(s). In receiving
 % mode (see below), it can run indefinitely until it detects an OFDM 
 % frame: the first OFDM frame detected in the received signal is extracted 
@@ -23,7 +23,7 @@ function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(sign
 % from this value and the interpolation factor. The interpolation factor
 % may need to be adapted depending on the chosen Fs in order for clock rate
 % to be in the valid range for the board.
-% - samplesPerUsrpFrame: number of samples per USRP frame.
+% - usrpFrameLength: number of samples per USRP frame.
 % - ofdmFrameLength: number of samples per OFDM frame: it is supposed to be
 % smaller than samplesPerUsrpFrame
 % - cpLength: length in samples of the cyclic prefix used for regular OFDM
@@ -40,7 +40,7 @@ function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(sign
 % - frameBeginning: the position of the detected OFDM frame in the received
 % signal (used for debugging typically)
 
-if ofdmFrameLength > samplesPerUsrpFrame
+if ofdmFrameLength > usrpFrameLength
     error('Length of OFDM frame must be smaller or equal than the length of USRP frame');
 end
 
@@ -78,7 +78,7 @@ agc = comm.AGC;
 devicesToCheck = [];
 if strcmp(mode, 'loopback')
     serialNumberRx = serialNumberTx;
-    if samplesPerUsrpFrame > 1e5
+    if usrpFrameLength > 1e5
         warning('samplePerFrame > 1e5 leads to overrun: the board drops samples.')
     end
     devicesToCheck = serialNumberRx;
@@ -98,10 +98,10 @@ checkDevicesConnection(devicesToCheck);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Pad signal to be transmitted with zeros to fill the USRP frames
-signalTx = padWithZeros(signalTx, samplesPerUsrpFrame);
+signalTx = padWithZeros(signalTx, usrpFrameLength);
 
 % Compute the number of USRP frames needed to transmit the signal
-noFrames = length(signalTx)/samplesPerUsrpFrame;
+noFrames = length(signalTx)/usrpFrameLength;
 if mod(noFrames, 1) ~= 0
     error('Number of frames must be integer %s.', num2str(noFrames));
 end
@@ -121,18 +121,18 @@ if strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardTx') ||  strcmp(mode, 'twoB
         'UnderrunOutputPort', true);
 end
 
+% Will contain the first N samples of the received signal (since the receiver
+% waits for an OFDM frame, it can last indefinitely and thus a limit on
+% the number of received samples saved is needed)
+signalRx = zeros(2e6, 1);
+
+% Will contain the first OFDM frame detected in the received signal
+% The frame synchronization is coarse at this stage: due to multipath,
+% the timing estimate should typically be at most a cyclic prefix
+% length late
+coarseFrameRx = zeros(ofdmFrameLength+cpLength, 1);
+
 if strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardRx') ||  strcmp(mode, 'twoBoardsRxTx')
-    
-    % Will contain the first N samples of the received signal (since the receiver
-    % waits for an OFDM frame, it can last indefinitely and thus a limit on
-    % the number of received samples saved is needed)
-    signalRx = zeros(2e6, 1);
-    
-    % Will contain the first OFDM frame detected in the received signal
-    % The frame synchronization is coarse at this stage: due to multipath,
-    % the timing estimate should typically be at most a cyclic prefix
-    % length late
-    coarseFrameRx = zeros(ofdmFrameLength+cpLength, 1);
     
     % Instantiate the Receiver
     rx = comm.SDRuReceiver(...
@@ -143,7 +143,7 @@ if strcmp(mode, 'loopback') || strcmp(mode, 'oneBoardRx') ||  strcmp(mode, 'twoB
         'SerialNum', serialNumberRx,...
         'DecimationFactor', decimationRx,...
         'Gain', gainRx,...
-        'SamplesPerFrame', samplesPerUsrpFrame,...
+        'SamplesPerFrame', usrpFrameLength,...
         'ClockSource', clockInputSource,...
         'OutputDataType', outputDataTypeUSRP,...
         'OverrunOutputPort', true);
@@ -197,8 +197,8 @@ switch mode
                 currentUsrpFrame = agc(currentUsrpFrame);
                 
                  % Save received samples (for debugging)
-                if l*samplesPerUsrpFrame < length(signalRx) 
-                    signalRx(1+(l-1)*samplesPerUsrpFrame:l*samplesPerUsrpFrame) = currentUsrpFrame;
+                if l*usrpFrameLength < length(signalRx) 
+                    signalRx(1+(l-1)*usrpFrameLength:l*usrpFrameLength) = currentUsrpFrame;
                 end
                 
                 if not(frameFound)
@@ -207,7 +207,7 @@ switch mode
                     % (the last samples of the previous USRP frame are used
                     % in case the OFDM frame spans the previous and current
                     % USRP frames)
-                    [coarseFrame, frameFound, ~, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], ofdmFrameLength, CPLength);
+                    [coarseFrame, frameFound, ~, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], ofdmFrameLength, cpLength);
                     
                     % If an OFDM frame is found, save it
                     if frameFound
@@ -219,7 +219,7 @@ switch mode
                 end
                
                 % Transmit the samples to be transmitted
-                tx(signalTx(1+(l-1)*samplesPerUsrpFrame:l*samplesPerUsrpFrame));
+                tx(signalTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
                 
                 l = l+1;
                 
@@ -247,8 +247,8 @@ switch mode
                 currentUsrpFrame = agc(currentUsrpFrame);
                 
                 % Save received samples (for debugging)
-                if l*samplesPerUsrpFrame < length(signalRx) 
-                    signalRx(1+(l-1)*samplesPerUsrpFrame:l*samplesPerUsrpFrame) = currentUsrpFrame;
+                if l*usrpFrameLength < length(signalRx) 
+                    signalRx(1+(l-1)*usrpFrameLength:l*usrpFrameLength) = currentUsrpFrame;
                 end
                 
                 if not(frameFound)
@@ -260,7 +260,7 @@ switch mode
                     % frameComplete is 1 if the OFDM frame is contained in
                     % a single USRP frame, else, the next USRP frame needs
                     % to be read to extract the missing samples
-                    [coarseFrame, frameFound, frameComplete, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], sc);
+                    [coarseFrame, frameFound, frameComplete, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], ofdmFrameLength, cpLength);
 
                     if frameFound
                         % Save the first part of the OFDM frame received
@@ -295,7 +295,7 @@ switch mode
     % Transmits the samples to transmit and stops
     case 'oneBoardTx'
         for l = 1:noFrames
-            tx(signalTx(1+(l-1)*samplesPerUsrpFrame:l*samplesPerUsrpFrame));
+            tx(signalTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
             coarseFrameRx = [];
         end
     otherwise

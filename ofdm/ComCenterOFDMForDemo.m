@@ -23,9 +23,9 @@ fprintf('Instance started on %s \n\n', datestr(now))
 %                       one transmits, the other receives
 % Note: USRP boards are always used in half-duplex mode except for the
 % loopback mode
-mode = 'simulation';
+% mode = 'simulation';
 % mode = 'twoBoardsRxTx';
-% mode = 'oneBoardRx';
+mode = 'oneBoardRx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Configuration of data source (source of bits to send)
@@ -148,7 +148,7 @@ else % Use USRPs
     signalTx = repmat(signalTx,100,1);
         
     % Transmit / Receive with USRPs
-    [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.ofdmFrameLength, sc.CPLength);
+    [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength);
 end
 
 plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
