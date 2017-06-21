@@ -1,4 +1,4 @@
-function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, Fs, usrpFrameLength, ofdmFrameLength, cpLength)
+function [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(ofdmFramesTx, mode, Fs, usrpFrameLength, ofdmFrameLength, cpLength)
 %RXTXUSRP Transmit and/or receive samples using USRP board(s). In receiving
 % mode (see below), it can run indefinitely until it detects an OFDM 
 % frame: the first OFDM frame detected in the received signal is extracted 
@@ -90,7 +90,7 @@ elseif strcmp(mode, 'twoBoardsRxTx')
     devicesToCheck = [serialNumberRx; serialNumberTx];
 end
 % Actually check the connection with the device(s)
-checkDevicesConnection(devicesToCheck);
+% checkDevicesConnection(devicesToCheck);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -98,10 +98,10 @@ checkDevicesConnection(devicesToCheck);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Pad signal to be transmitted with zeros to fill the USRP frames
-signalTx = padWithZeros(signalTx, usrpFrameLength);
+ofdmFramesTx = padWithZeros(ofdmFramesTx, usrpFrameLength);
 
 % Compute the number of USRP frames needed to transmit the signal
-noFrames = length(signalTx)/usrpFrameLength;
+noFrames = length(ofdmFramesTx)/usrpFrameLength
 if mod(noFrames, 1) ~= 0
     error('Number of frames must be integer %s.', num2str(noFrames));
 end
@@ -181,50 +181,67 @@ switch mode
     % samples are the transmitted ones, it does not make sense to wait
     % longer when all the samples have been transmitted
     case {'loopback', 'twoBoardsRxTx'}
-
         l = 1;
         while l <= noFrames
-            
+             
             % Receive samples for the receiver USRP
             [currentUsrpFrame, len, ~] = rx();
             
             if len > 0
-                numSamplesReceived = numSamplesReceived + length(currentUsrpFrame);
                 
                 % Samples go through automatic gain controller: it is
                 % needed since the frame detection algorithm uses an
                 % absolute threshold
+                numSamplesReceived = numSamplesReceived + length(currentUsrpFrame);
+                
                 currentUsrpFrame = agc(currentUsrpFrame);
                 
-                 % Save received samples (for debugging)
+                % Save received samples (for debugging)
                 if l*usrpFrameLength < length(signalRx) 
                     signalRx(1+(l-1)*usrpFrameLength:l*usrpFrameLength) = currentUsrpFrame;
                 end
                 
-                if not(frameFound)
+                if not(frameFound) || not(frameComplete)
                     
                     % Try to detect an OFDM frame in the received samples
                     % (the last samples of the previous USRP frame are used
                     % in case the OFDM frame spans the previous and current
-                    % USRP frames)
-                    [coarseFrame, frameFound, ~, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], ofdmFrameLength, cpLength);
-                    
-                    % If an OFDM frame is found, save it
+                    % USRP frames).
+                    % frameComplete is 1 if the OFDM frame is contained in
+                    % a single USRP frame, else, the next USRP frame needs
+                    % to be read to extract the missing samples
+                    [coarseFrame, frameFound, frameComplete, positionFromBeginning] = frameDetection([lastSamplesBuffer; currentUsrpFrame], ofdmFrameLength, cpLength);
+
                     if frameFound
-                        coarseFrameRx = coarseFrame;
+                        % Save the first part of the OFDM frame received
+                        % (possibly the whole OFDM frame)
+                        coarseFrameRx(1:length(coarseFrame)) = coarseFrame;
                         
-                        % Index of first sample of the frame (for debugging)
-                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning;
+                        % Save the number of missing samples
+                        numMissingSamples = length(coarseFrameRx) - length(coarseFrame);
+                        %disp(['num missing samples (frame was found): ' num2str(numMissingSamples)]); % for debugging
+                        
+                        % Index of first sample of the frame for plotting
+                        % purpose only
+                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning
                     end
+                elseif frameFound && not(frameComplete)
+                    
+                    % Adds the second part of the detected OFDM frame
+                    coarseFrameRx = [coarseFrameRx; currentUsrpFrame(1:numMissingSamples)];
+                    
+                    % The frame is now complete (it can span only 2 USRP
+                    % frames)
+                    frameComplete = 1; 
                 end
-               
-                % Transmit the samples to be transmitted
-                tx(signalTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
+                
+                 % Transmit the samples to be transmitted
+                tx(ofdmFramesTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
                 
                 l = l+1;
                 
                 % Update buffer
-                lastSamplesBuffer = currentUsrpFrame(end-length(lastSamplesBuffer)+1:end); 
+                lastSamplesBuffer = currentUsrpFrame(end-length(lastSamplesBuffer)+1:end);
             end
         end
        
@@ -295,7 +312,7 @@ switch mode
     % Transmits the samples to transmit and stops
     case 'oneBoardTx'
         for l = 1:noFrames
-            tx(signalTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
+            tx(ofdmFramesTx(1+(l-1)*usrpFrameLength:l*usrpFrameLength));
             coarseFrameRx = [];
         end
     otherwise
