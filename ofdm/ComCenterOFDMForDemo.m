@@ -151,6 +151,12 @@ else % Use USRPs
     [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength);
 end
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% OFDM Receivers
+% Feed the different OFDM receivers with the received signal
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if isInstanceReceiver(mode)
+    
 % R = xcorr(signalRx, repmat(stsTime, 10, 1));
 % R = R(length(signalRx):end);
 % plotSignalMagnitude(R, 'samples', 'Xcorr full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
@@ -158,12 +164,7 @@ end
 % plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
 
 plotSignalMagnitude(coarseFrameRx, 'samples', 'Coarse frame received');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% OFDM Receivers
-% Feed the different OFDM receivers with the received signal
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if isInstanceReceiver(mode)
+    
     if strcmp(mode, 'oneBoardRx')
         dataFrame = [];
     end
