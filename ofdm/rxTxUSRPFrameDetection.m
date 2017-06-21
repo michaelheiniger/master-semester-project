@@ -57,7 +57,7 @@ serialNumberTx = '30C5426';
 Ts = 1/Fs;
 
 boardPlatform = 'B200'; % Model of the board ('B200' for B200 mini)
-fc = 5e9; % carrier frequency
+fc = 3.4e9; % carrier frequency
 LOO = 1e3; % local oscillator offset
 interpolationTx = 10; % Interpolation factor from host signal to USRP signal (e.g Fs = 0.5 Mhz => ClockRate = 5 Mhz)
 clockRateTx  = interpolationTx/Ts; % main clock (Sampling rate of the digital signal sent to ADC) (5e6 to 56e6)
@@ -124,7 +124,7 @@ end
 % Will contain the first N samples of the received signal (since the receiver
 % waits for an OFDM frame, it can last indefinitely and thus a limit on
 % the number of received samples saved is needed)
-signalRx = zeros(2e6, 1);
+signalRx = zeros(10e6, 1);
 
 % Will contain the first OFDM frame detected in the received signal
 % The frame synchronization is coarse at this stage: due to multipath,
@@ -223,7 +223,7 @@ switch mode
                         
                         % Index of first sample of the frame for plotting
                         % purpose only
-                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning
+                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning;
                     end
                 elseif frameFound && not(frameComplete)
                     
@@ -283,19 +283,20 @@ switch mode
                         % Save the first part of the OFDM frame received
                         % (possibly the whole OFDM frame)
                         coarseFrameRx(1:length(coarseFrame)) = coarseFrame;
+                        disp(['Length coarse frame: ' num2str(length(coarseFrame))]) % <= ofdm frame length + cp length (for debugging)
                         
                         % Save the number of missing samples
                         numMissingSamples = length(coarseFrameRx) - length(coarseFrame);
-                        %disp(['num missing samples (frame was found): ' num2str(numMissingSamples)]); % for debugging
+                        disp(['num missing samples (frame was found): ' num2str(numMissingSamples)]); % >= 0 (for debugging)
                         
                         % Index of first sample of the frame for plotting
                         % purpose only
-                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning
+                        frameBeginning = numSamplesReceived - length(currentUsrpFrame) - length(lastSamplesBuffer) + positionFromBeginning;
                     end
                 elseif frameFound && not(frameComplete)
                     
                     % Adds the second part of the detected OFDM frame
-                    coarseFrameRx = [coarseFrameRx; currentUsrpFrame(1:numMissingSamples)];
+                    coarseFrameRx(end-numMissingSamples+1:end) = currentUsrpFrame(1:numMissingSamples);
                     
                     % The frame is now complete (it can span only 2 USRP
                     % frames)
