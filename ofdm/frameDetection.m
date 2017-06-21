@@ -86,13 +86,12 @@ for l = 1:K:length(currentChunk)
 
         % If the OFDM frame is contained entirely in this current USRP
         % frame
-        if length(currentChunk(l+peakPosition-1:end)) >= ofdmFrameLength
+        if length(currentChunk(peakPosition:end)) >= ofdmFrameLength
             % -cpLength to account for CIR length of at most cpLength
             coarseFrame = currentChunk(peakPosition-cpLength:peakPosition+ofdmFrameLength-1);
-            length(coarseFrame)
             frameComplete = 1;
         else % Else, we take all remaining samples and we will need to read the next USRP frame
-            coarseFrame = currentChunk(l+peakPosition-cpLength:end);
+            coarseFrame = currentChunk(peakPosition-cpLength:end);
             frameComplete = 0;
         end
         positionFromBeginning = peakPosition;
