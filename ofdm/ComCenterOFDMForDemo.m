@@ -24,8 +24,8 @@ fprintf('Instance started on %s \n\n', datestr(now))
 % Note: USRP boards are always used in half-duplex mode except for the
 % loopback mode
 % mode = 'simulation';
-% mode = 'twoBoardsRxTx';
-mode = 'oneBoardRx';
+mode = 'twoBoardsRxTx';
+% mode = 'oneBoardRx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Configuration of data source (source of bits to send)
@@ -139,7 +139,7 @@ if strcmp(mode, 'simulation') % Use simulator
     
     % Place the OFDM frames at the beginning of the received signal if
     % deterministic = 1, else the place is random
-    deterministic = 1;
+    deterministic = 0;
     [coarseFrameRx, signalRx, frameBeginning] = usrpSimulator(signalTxImpaired, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength, deterministic);
 
 else % Use USRPs
@@ -150,6 +150,11 @@ else % Use USRPs
     % Transmit / Receive with USRPs
     [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength);
 end
+
+R = xcorr(signalRx, repmat(stsTime, 10, 1));
+R = R(length(signalRx):end);
+figure;
+plotSignalMagnitude(R, 'samples', 'Xcorr full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
 
 plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
 
@@ -170,7 +175,11 @@ if isInstanceReceiver(mode)
     disp(['Number of useful bits sent (extracted from SIGNAL field): ' num2str(numUsefulBitsRx)]);
     
     % Remove paddind bits
-    usefulBits = bitsRx(1:numUsefulBitsRx);
+    if numUsefulBitsRx <= length(bitsRx)
+        usefulBits = bitsRx(1:numUsefulBitsRx);
+    else
+        warning('numUsefulBitsRx seems to long to be correct');
+    end
     
     if not(strcmp(mode, 'oneBoardRx'))
         % Compute Bit and Symbol Error Rates of all receivers
