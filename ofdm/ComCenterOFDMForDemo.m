@@ -24,8 +24,8 @@ fprintf('Instance started on %s \n\n', datestr(now))
 % Note: USRP boards are always used in half-duplex mode except for the
 % loopback mode
 % mode = 'simulation';
-mode = 'twoBoardsRxTx';
-% mode = 'oneBoardRx';
+% mode = 'twoBoardsRxTx';
+mode = 'oneBoardRx';
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Configuration of data source (source of bits to send)
@@ -151,12 +151,11 @@ else % Use USRPs
     [coarseFrameRx, signalRx, frameBeginning] = rxTxUSRPFrameDetection(signalTx, mode, sc.Fs, sc.usrpFrameLength, sc.ofdmFrameLength, sc.CPLength);
 end
 
-R = xcorr(signalRx, repmat(stsTime, 10, 1));
-R = R(length(signalRx):end);
-figure;
-plotSignalMagnitude(R, 'samples', 'Xcorr full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
+% R = xcorr(signalRx, repmat(stsTime, 10, 1));
+% R = R(length(signalRx):end);
+% plotSignalMagnitude(R, 'samples', 'Xcorr full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
 
-plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
+% plotSignalMagnitude(signalRx, 'samples', 'Full received signal', frameBeginning, frameBeginning+sc.ofdmFrameLength-1, 'green');
 
 plotSignalMagnitude(coarseFrameRx, 'samples', 'Coarse frame received');
 
